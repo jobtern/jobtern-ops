@@ -16,8 +16,27 @@ Fullstack Engineer
 
 ## Task breakdown
 
-<!-- Paste the active task variant here before injecting this file as a secret -->
-<!-- Include: what was asked, key constraints, and any domain-specific traps -->
+### Variant 1 — Transaction Feed: API + UI
+
+The candidate was asked to build a small fullstack feature in two parts.
+
+**Part A — REST API**
+- `POST /transactions` — accepts a transaction payload and persists it to a database
+- `GET /transactions` — returns a paginated list; supports filtering by `status` (pending, completed, failed) and `type` (debit, credit)
+- `GET /transactions/:id` — returns a single transaction or 404
+
+Each transaction must have at minimum: `id`, `amount`, `currency`, `status`, `type`, `description`, `created_at`.
+
+**Part B — Frontend UI**
+- Fetches and displays the transaction list
+- Lets the user filter by status and type
+- Shows a summary bar: total debits, total credits, count by status
+
+**Key traps to watch for**
+- `amount` stored as a float or JS number instead of integer cents or NUMERIC — hard fail
+- Filtering or pagination done on the frontend after fetching all records — hard fail
+- No error handling on invalid payloads — hard fail
+- Single commit or meaningless commit messages — hard fail
 
 ---
 

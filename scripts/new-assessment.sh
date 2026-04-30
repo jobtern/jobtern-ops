@@ -112,11 +112,18 @@ done
 ok "Branch '$DEFAULT_BRANCH' is ready"
 
 # ── Inject rubric as a repo secret ───────────────────────────────────────────
-step "Injecting rubric as REVIEW_CONTEXT secret"
+step "Setting rubric URL"
 
-base64 -i "$RUBRIC_FILE" | gh secret set REVIEW_CONTEXT --repo "$FULL_REPO"
+RUBRIC_FILENAME=$(basename "$RUBRIC_FILE")
+RUBRIC_URL="https://raw.githubusercontent.com/$TARGET_ORG/jobtern-ops/main/rubrics/$RUBRIC_FILENAME"
 
-ok "REVIEW_CONTEXT secret set — candidates cannot see this"
+gh api \
+  --method POST \
+  "repos/$FULL_REPO/actions/variables" \
+  -f name="RUBRIC_URL" \
+  -f value="$RUBRIC_URL" > /dev/null
+
+ok "RUBRIC_URL set to $RUBRIC_URL"
 
 # ── Apply branch protection ───────────────────────────────────────────────────
 step "Applying branch protection"

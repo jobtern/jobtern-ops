@@ -114,11 +114,7 @@ ok "Branch '$DEFAULT_BRANCH' is ready"
 # ── Inject rubric as a repo secret ───────────────────────────────────────────
 step "Injecting rubric as REVIEW_CONTEXT secret"
 
-RUBRIC_CONTENT=$(cat "$RUBRIC_FILE")
-
-gh secret set REVIEW_CONTEXT \
-  --repo "$FULL_REPO" \
-  --body "$RUBRIC_CONTENT"
+base64 -i "$RUBRIC_FILE" | gh secret set REVIEW_CONTEXT --repo "$FULL_REPO"
 
 ok "REVIEW_CONTEXT secret set — candidates cannot see this"
 

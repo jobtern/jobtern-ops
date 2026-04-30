@@ -2,11 +2,11 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # new-assessment.sh
 # Creates a new Jobtern assessment repo from the template, applies branch
-# protection, and opens the review context for editing.
+# protection, and injects the rubric as a repo secret so candidates can't see it.
 #
 # Usage:
-#   ./new-assessment.sh <repo-name>
-#   ./new-assessment.sh jobtern-fullstack-2025-02
+#   ./new-assessment.sh <repo-name> <path-to-rubric>
+#   ./new-assessment.sh {client}-fullstack-2025-02 rubrics/{client}-fullstack.md
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
@@ -15,10 +15,9 @@
 set -euo pipefail
 
 # ── CONFIG — edit these once ──────────────────────────────────────────────────
-TEMPLATE_REPO="jobtern/jobtern-assessment-template"   # your template repo
-TARGET_ORG="jobtern"                                  # org where new repos go
+TEMPLATE_REPO="jobtern-inc/jobtern-assessment-template"   # your template repo
+TARGET_ORG="jobtern-inc"                                  # org where new repos go
 DEFAULT_BRANCH="main"
-REVIEW_CONTEXT_PATH=".github/review-context.md"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -36,18 +35,20 @@ fail()  { echo -e "\n${RED}✗ $1${RESET}"; exit 1; }
 dim()   { echo -e "  ${DIM}$1${RESET}"; }
 
 # ── Args ──────────────────────────────────────────────────────────────────────
-if [[ $# -lt 1 ]]; then
-  echo -e "${BOLD}Usage:${RESET} $0 <repo-name>"
-  echo -e "  ${DIM}Example: $0 jobtern-fullstack-2025-02${RESET}"
+if [[ $# -lt 2 ]]; then
+  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric>"
+  echo -e "  ${DIM}Example: $0 {client}-fullstack-2025-02 rubrics/{client}-fullstack.md${RESET}"
   exit 1
 fi
 
 REPO_NAME="$1"
+RUBRIC_FILE="$2"
 FULL_REPO="$TARGET_ORG/$REPO_NAME"
 
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
 echo -e "${DIM}Template: $TEMPLATE_REPO${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
+echo -e "${DIM}Rubric:   $RUBRIC_FILE${RESET}"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -68,6 +69,15 @@ if ! gh repo view "$TEMPLATE_REPO" &> /dev/null; then
   fail "Template repo not found: $TEMPLATE_REPO\n  Update TEMPLATE_REPO in this script."
 fi
 ok "Template repo found"
+
+# Check rubric file exists and is not empty
+if [[ ! -f "$RUBRIC_FILE" ]]; then
+  fail "Rubric file not found: $RUBRIC_FILE"
+fi
+if [[ ! -s "$RUBRIC_FILE" ]]; then
+  fail "Rubric file is empty: $RUBRIC_FILE"
+fi
+ok "Rubric file found"
 
 # Check repo name doesn't already exist
 if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
@@ -100,6 +110,17 @@ until gh api "repos/$FULL_REPO/branches/$DEFAULT_BRANCH" &> /dev/null; do
   sleep 3
 done
 ok "Branch '$DEFAULT_BRANCH' is ready"
+
+# ── Inject rubric as a repo secret ───────────────────────────────────────────
+step "Injecting rubric as REVIEW_CONTEXT secret"
+
+RUBRIC_CONTENT=$(cat "$RUBRIC_FILE")
+
+gh secret set REVIEW_CONTEXT \
+  --repo "$FULL_REPO" \
+  --body "$RUBRIC_CONTENT"
+
+ok "REVIEW_CONTEXT secret set — candidates cannot see this"
 
 # ── Apply branch protection ───────────────────────────────────────────────────
 step "Applying branch protection"
@@ -135,24 +156,6 @@ else
   warn "ANTHROPIC_API_KEY not found as an org secret."
   echo -e "  Add it at: https://github.com/organizations/$TARGET_ORG/settings/secrets/actions"
   echo -e "  ${DIM}Or add it at the repo level: https://github.com/$FULL_REPO/settings/secrets/actions${RESET}"
-fi
-
-# ── Open review context for editing ──────────────────────────────────────────
-step "Opening review context"
-
-REVIEW_CONTEXT_URL="https://github.com/$FULL_REPO/edit/$DEFAULT_BRANCH/$REVIEW_CONTEXT_PATH"
-echo ""
-echo -e "  Update the review context before sending to candidates:"
-echo -e "  ${BOLD}${REVIEW_CONTEXT_URL}${RESET}"
-echo ""
-dim "  Fields to update: Role, Company, Task variant, Hard fails"
-echo ""
-
-# Try to open in browser if possible
-if command -v open &> /dev/null; then
-  open "$REVIEW_CONTEXT_URL"
-elif command -v xdg-open &> /dev/null; then
-  xdg-open "$REVIEW_CONTEXT_URL"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

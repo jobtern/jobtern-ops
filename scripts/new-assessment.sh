@@ -148,10 +148,16 @@ ok "Branch protection applied"
 ok "Merge blocked until Claude approves"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-echo -e "${GREEN}${BOLD}Done.${RESET}"
+REPO_URL="https://github.com/$FULL_REPO"
+
+echo -e "\n${GREEN}${BOLD}Done.${RESET}"
 echo ""
-echo -e "  Repo URL:     ${BOLD}https://github.com/$FULL_REPO${RESET}"
 echo -e "  Send this to candidates — they fork it and open a PR."
-echo ""
 echo -e "  ${DIM}Review workflow fires automatically on every PR open or push.${RESET}"
 echo ""
+
+if command -v open &> /dev/null; then
+  open "$REPO_URL"
+elif command -v xdg-open &> /dev/null; then
+  xdg-open "$REPO_URL"
+fi

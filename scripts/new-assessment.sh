@@ -128,7 +128,7 @@ step "Applying branch protection"
 gh api \
   --method PUT \
   "repos/$FULL_REPO/branches/$DEFAULT_BRANCH/protection" \
-  --input - <<EOF
+  --input - <<EOF > /dev/null
 {
   "required_status_checks": {
     "strict": true,
@@ -146,17 +146,6 @@ EOF
 
 ok "Branch protection applied"
 ok "Merge blocked until Claude approves"
-
-# ── Verify org secret is accessible ──────────────────────────────────────────
-step "Checking ANTHROPIC_API_KEY secret"
-
-if gh secret list --org "$TARGET_ORG" 2>/dev/null | grep -q "ANTHROPIC_API_KEY"; then
-  ok "Org secret ANTHROPIC_API_KEY found"
-else
-  warn "ANTHROPIC_API_KEY not found as an org secret."
-  echo -e "  Add it at: https://github.com/organizations/$TARGET_ORG/settings/secrets/actions"
-  echo -e "  ${DIM}Or add it at the repo level: https://github.com/$FULL_REPO/settings/secrets/actions${RESET}"
-fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo -e "${GREEN}${BOLD}Done.${RESET}"

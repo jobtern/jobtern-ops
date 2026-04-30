@@ -15,8 +15,8 @@
 set -euo pipefail
 
 # ── CONFIG — edit these once ──────────────────────────────────────────────────
-TEMPLATE_REPO="jobtern-inc/jobtern-assessment-template"   # your template repo
-TARGET_ORG="jobtern-inc"                                  # org where new repos go
+TEMPLATE_REPO="jobtern/jobtern-assessment-template"   # your template repo
+TARGET_ORG="jobtern"                                  # org where new repos go
 DEFAULT_BRANCH="main"
 # ─────────────────────────────────────────────────────────────────────────────
 

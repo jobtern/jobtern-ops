@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # new-assessment.sh
-# Creates a new Jobtern assessment repo from the template, applies branch
-# protection, and injects the rubric as a repo secret so candidates can't see it.
+# Creates a new Jobtern assessment repo from the template, sets rubric and
+# task URLs as repo variables, and applies branch protection.
 #
 # Usage:
-#   ./new-assessment.sh <repo-name> <path-to-rubric>
-#   ./new-assessment.sh {client}-fullstack-2025-02 rubrics/{client}-fullstack.md
+#   ./scripts/new-assessment.sh <repo-name> <path-to-rubric> <path-to-task>
+#
+# Example:
+#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 \
+#     rubrics/fullstack.md \
+#     tasks/sample-fullstack-v1.md
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
@@ -15,8 +19,9 @@
 set -euo pipefail
 
 # ── CONFIG — edit these once ──────────────────────────────────────────────────
-TEMPLATE_REPO="jobtern/jobtern-assessment-template"   # your template repo
-TARGET_ORG="jobtern"                                  # org where new repos go
+TEMPLATE_REPO="jobtern/jobtern-assessment-template"
+TARGET_ORG="jobtern"
+OPS_REPO="jobtern-ops"
 DEFAULT_BRANCH="main"
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -35,20 +40,22 @@ fail()  { echo -e "\n${RED}✗ $1${RESET}"; exit 1; }
 dim()   { echo -e "  ${DIM}$1${RESET}"; }
 
 # ── Args ──────────────────────────────────────────────────────────────────────
-if [[ $# -lt 2 ]]; then
-  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric>"
-  echo -e "  ${DIM}Example: $0 {client}-fullstack-2025-02 rubrics/{client}-fullstack.md${RESET}"
+if [[ $# -lt 3 ]]; then
+  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric> <path-to-task>"
+  echo -e "  ${DIM}Example: $0 jobtern-fullstack-2026-05 rubrics/fullstack.md tasks/sample-fullstack-v1.md${RESET}"
   exit 1
 fi
 
 REPO_NAME="$1"
 RUBRIC_FILE="$2"
+TASK_FILE="$3"
 FULL_REPO="$TARGET_ORG/$REPO_NAME"
 
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
 echo -e "${DIM}Template: $TEMPLATE_REPO${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
 echo -e "${DIM}Rubric:   $RUBRIC_FILE${RESET}"
+echo -e "${DIM}Task:     $TASK_FILE${RESET}"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -56,7 +63,6 @@ step "Preflight checks"
 if ! command -v gh &> /dev/null; then
   fail "GitHub CLI (gh) not found. Install it: https://cli.github.com"
 fi
-
 if ! gh auth status &> /dev/null; then
   fail "Not authenticated with GitHub CLI. Run: gh auth login"
 fi
@@ -64,13 +70,11 @@ fi
 GH_USER=$(gh api user --jq '.login')
 ok "Authenticated as $GH_USER"
 
-# Check template repo exists
 if ! gh repo view "$TEMPLATE_REPO" &> /dev/null; then
-  fail "Template repo not found: $TEMPLATE_REPO\n  Update TEMPLATE_REPO in this script."
+  fail "Template repo not found: $TEMPLATE_REPO"
 fi
 ok "Template repo found"
 
-# Check rubric file exists and is not empty
 if [[ ! -f "$RUBRIC_FILE" ]]; then
   fail "Rubric file not found: $RUBRIC_FILE"
 fi
@@ -79,7 +83,14 @@ if [[ ! -s "$RUBRIC_FILE" ]]; then
 fi
 ok "Rubric file found"
 
-# Check repo name doesn't already exist
+if [[ ! -f "$TASK_FILE" ]]; then
+  fail "Task file not found: $TASK_FILE"
+fi
+if [[ ! -s "$TASK_FILE" ]]; then
+  fail "Task file is empty: $TASK_FILE"
+fi
+ok "Task file found"
+
 if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
   fail "Repo already exists: $FULL_REPO"
 fi
@@ -94,36 +105,37 @@ gh repo create "$FULL_REPO" \
 
 ok "Repo created: https://github.com/$FULL_REPO"
 
-# Wait for GitHub to finish initialising the repo contents
 echo ""
 dim "Waiting for repo initialisation..."
 sleep 4
 
-# Confirm default branch exists before applying protection
 ATTEMPTS=0
 until gh api "repos/$FULL_REPO/branches/$DEFAULT_BRANCH" &> /dev/null; do
   ATTEMPTS=$((ATTEMPTS + 1))
   if [[ $ATTEMPTS -ge 8 ]]; then
-    fail "Timed out waiting for branch '$DEFAULT_BRANCH' to appear. Check the repo manually."
+    fail "Timed out waiting for branch '$DEFAULT_BRANCH'."
   fi
   dim "  branch not ready yet, retrying in 3s..."
   sleep 3
 done
 ok "Branch '$DEFAULT_BRANCH' is ready"
 
-# ── Inject rubric as a repo secret ───────────────────────────────────────────
-step "Setting rubric URL"
+# ── Set rubric and task URLs as repo variables ────────────────────────────────
+step "Setting rubric and task URLs"
 
-RUBRIC_FILENAME=$(basename "$RUBRIC_FILE")
-RUBRIC_URL="https://raw.githubusercontent.com/$TARGET_ORG/jobtern-ops/main/rubrics/$RUBRIC_FILENAME"
+RUBRIC_REL_PATH="${RUBRIC_FILE#./}"
+TASK_REL_PATH="${TASK_FILE#./}"
 
-gh api \
-  --method POST \
-  "repos/$FULL_REPO/actions/variables" \
-  -f name="RUBRIC_URL" \
-  -f value="$RUBRIC_URL" > /dev/null
+RUBRIC_URL="https://raw.githubusercontent.com/$TARGET_ORG/$OPS_REPO/main/$RUBRIC_REL_PATH"
+TASK_URL="https://raw.githubusercontent.com/$TARGET_ORG/$OPS_REPO/main/$TASK_REL_PATH"
 
-ok "RUBRIC_URL set to $RUBRIC_URL"
+gh api --method POST "repos/$FULL_REPO/actions/variables" \
+  -f name="RUBRIC_URL" -f value="$RUBRIC_URL" > /dev/null
+ok "RUBRIC_URL set"
+
+gh api --method POST "repos/$FULL_REPO/actions/variables" \
+  -f name="TASK_URL" -f value="$TASK_URL" > /dev/null
+ok "TASK_URL set"
 
 # ── Apply branch protection ───────────────────────────────────────────────────
 step "Applying branch protection"
@@ -155,7 +167,7 @@ REPO_URL="https://github.com/$FULL_REPO"
 
 echo -e "\n${GREEN}${BOLD}Done.${RESET}"
 echo ""
-echo -e "  Send this to candidates — they fork it and open a PR."
+echo -e "  Send this to the candidate — they fork it and open a PR."
 echo -e "  ${DIM}Review workflow fires automatically on every PR open or push.${RESET}"
 echo ""
 

@@ -1,76 +1,225 @@
-# Review Context — Fullstack Engineer
+# Rubric — Fullstack Engineer
 
 ## Role
 Fullstack Engineer
 
-## What this assessment is testing
-
-- Can the candidate own a feature end-to-end without hand-holding?
-- Do they handle error states, not just happy paths?
-- Is their code written to be read by a teammate, not just to run?
-- Does their README communicate clearly to someone who wasn't in the room?
-- Does their commit history show deliberate, incremental progress?
-- Do they make sound judgment calls on data types, constraints, and scope?
+## Experience level
+Junior (≤ 2 years)
 
 ---
 
-## Task breakdown
+## Context
 
-### Variant 1 — Transaction Feed: API + UI
+You are reviewing a submission from a junior fullstack engineer. The task the candidate was asked to complete is provided separately — read it before scoring. Evaluate honestly and without diplomatic softening.
 
-The candidate was asked to build a small fullstack feature in two parts.
+---
 
-**Part A — REST API**
-- `POST /transactions` — accepts a transaction payload and persists it to a database
-- `GET /transactions` — returns a paginated list; supports filtering by `status` (pending, completed, failed) and `type` (debit, credit)
-- `GET /transactions/:id` — returns a single transaction or 404
+## Scoring structure
 
-Each transaction must have at minimum: `id`, `amount`, `currency`, `status`, `type`, `description`, `created_at`.
+Every sub-dimension is scored 0–5. Each pillar score is the normalised mean of its sub-dimensions, rounded to 1 decimal place. The four pillar scores sum to a total out of 20.
 
-**Part B — Frontend UI**
-- Fetches and displays the transaction list
-- Lets the user filter by status and type
-- Shows a summary bar: total debits, total credits, count by status
+| Pillar | Sub-dimensions |
+|---|---|
+| Technical Discipline | Correctness, Craft, Scope & Judgment |
+| Reliability | Task completion, Brief adherence, Runnable instructions, Submission timing |
+| Communication | Commit messages, PR description, README, Code documentation |
+| Team Readiness | Code transferability, Git narrative, Explicit surface area |
 
-**Key traps to watch for**
-- `amount` stored as a float or JS number instead of integer cents or NUMERIC — hard fail
-- Filtering or pagination done on the frontend after fetching all records — hard fail
-- No error handling on invalid payloads — hard fail
-- Single commit or meaningless commit messages — hard fail
+---
+
+## Pillar 1 — Technical Discipline
+
+For a fullstack engineer at ≤ 2 years experience, technical discipline shows across two surfaces simultaneously: the integrity of the backend and the correctness of the frontend that consumes it. The bar is not that both halves are perfect — it is that the candidate demonstrates deliberate thinking on both sides and that the seam between them is sound.
+
+### Correctness (0–5)
+- All stated requirements are implemented and functional across both frontend and backend
+- API returns correct HTTP status codes: 200, 201, 400, 401, 404, 409 where applicable
+- Input is validated on the backend — bad payloads return a 4xx with a message body, not a crash
+- Frontend handles loading, error, and empty states — not just the happy path
+- Data displayed in the UI accurately reflects what the API returns
+
+Scoring guide:
+- 5 — All requirements met across both layers, all states handled, no functional bugs observed
+- 4 — All requirements met, one minor gap on either side
+- 3 — Most requirements met, one state missing or one route not behaving as specified
+- 2 — Core requirements partially met, multiple gaps across the stack
+- 1 — Significant requirements missing or the two halves do not connect correctly
+- 0 — Does not run or frontend and backend are not integrated
+
+### Craft (0–5)
+Backend craft signals:
+- Route handlers, business logic, and data access are clearly separated
+- Schema makes sense: correct column types, constraints at the DB level
+- Monetary amounts stored as integer cents or a decimal type — never a float
+- Environment configuration is externalised
+
+Frontend craft signals:
+- Components are focused and named after what they do
+- State is kept as close to where it is needed as possible
+- CSS is structured and consistent
+- Performance optimisation is a positive signal but absence does not penalise at this level
+
+Scoring guide:
+- 5 — Both layers show deliberate design: clean backend structure, focused frontend components, correct data types
+- 4 — Mostly clean with one avoidable decision on either side
+- 3 — Functional but one layer shows limited structural awareness
+- 2 — Code works but shows limited understanding of design on one or both sides
+- 1 — Works in places but structure suggests trial-and-error throughout
+- 0 — Code is not functional
+
+### Scope & Judgment (0–5)
+- Changes are scoped to what was asked — no unrequested features or rewrites
+- Trade-offs are acknowledged explicitly rather than silently skipped
+- Technology choices are appropriate for the task size on both sides
+- Decisions under ambiguity are reasonable and documented
+
+Scoring guide:
+- 5 — Tight scope, sound trade-offs documented, technology choices well-matched across the stack
+- 4 — Minor scope drift or one undocumented trade-off
+- 3 — Noticeable scope issues or several undocumented assumptions
+- 2 — Significant over or under-engineering, trade-offs hidden
+- 1 — Scope is poorly controlled, decisions appear unconsidered
+- 0 — No evidence of deliberate scoping
+
+---
+
+## Pillar 2 — Reliability
+
+### Task completion (0–5)
+Scoring guide:
+- 5 — All deliverables present — both frontend and backend components
+- 4 — One minor deliverable missing or incomplete
+- 3 — One significant deliverable missing (e.g. entire frontend or entire API layer)
+- 2 — Multiple deliverables missing
+- 1 — Most deliverables absent
+- 0 — Submission is empty or entirely off-task
+
+### Brief adherence (0–5)
+Scoring guide:
+- 5 — All constraints followed, deviations acknowledged where made
+- 4 — Minor deviation, acknowledged
+- 3 — Minor deviation unacknowledged — or major deviation acknowledged
+- 2 — Multiple unacknowledged deviations
+- 1 — Task largely ignored
+- 0 — No evidence the task was read
+
+### Runnable instructions (0–5)
+- Instructions cover both server and client setup
+- Any required environment variables are listed
+
+Scoring guide:
+- 5 — Instructions are complete, ordered, and runnable as written including env setup
+- 4 — Instructions present but one step is missing or ambiguous
+- 3 — Instructions present but incomplete — project requires inference to run
+- 2 — Instructions are present but incorrect or out of order
+- 1 — README exists but contains no runnable instructions
+- 0 — No README or no instructions at all
+
+### Submission timing (0–5)
+Compare the PR open timestamp against the due date in the task file.
+
+Scoring guide:
+- 5 — Submitted before the deadline
+- 2 — Submitted after the deadline
+- 0 — Not submitted (no PR opened)
+
+---
+
+## Pillar 3 — Communication
+
+### Commit messages (0–5)
+- History shows a deliberate sequence — schema and backend first, then frontend, then integration
+
+Scoring guide:
+- 5 — Messages are specific, sequential, and tell a coherent story across both layers
+- 4 — Mostly good with one or two vague messages
+- 3 — Mix of meaningful and generic messages
+- 2 — Mostly generic ("fix", "update", "wip") with occasional substance
+- 1 — All messages are meaningless
+- 0 — Single commit or no commits beyond the initial
+
+### PR description (0–5)
+Scoring guide:
+- 5 — All fields answered substantively, assumptions clear, reflection genuine
+- 4 — All fields answered, one is thin or generic
+- 3 — Most fields answered, one skipped or surface-level reflection
+- 2 — Multiple fields skipped or all answers are surface level
+- 1 — PR description is mostly template placeholders
+- 0 — No PR description
+
+### README (0–5)
+- Setup covers both server and client
+- API behaviour is documented
+- Assumptions and architectural decisions are explained
+
+Scoring guide:
+- 5 — Clear, complete — a teammate could onboard across the full stack from this alone
+- 4 — Good coverage with one gap
+- 3 — Present but thin — covers setup but not architecture or API behaviour
+- 2 — Mostly boilerplate or incomplete
+- 1 — Exists but adds no information beyond the template
+- 0 — No README
+
+### Code documentation (0–5)
+Scoring guide:
+- 5 — Comments exist where needed, absent where not — shows judgment across both layers
+- 4 — Mostly good, one or two gaps on non-obvious logic
+- 3 — Some comments but inconsistent
+- 2 — Very sparse or comments only restate the code
+- 1 — No comments anywhere, including on non-obvious logic
+- 0 — No documentation of any kind
+
+---
+
+## Pillar 4 — Team Readiness
+
+Team readiness measures the degree to which a teammate could pick up this code and work with it without asking the author a single question. For a fullstack submission this applies across both layers.
+
+### Code transferability (0–5)
+- Function and variable names explain intent across both frontend and backend
+- No magic numbers or unexplained constants
+- Any function can be read in isolation without holding the whole file in your head
+
+Scoring guide:
+- 5 — Code is self-explanatory at the function level across both layers
+- 4 — Mostly readable with one or two cryptic sections on either side
+- 3 — Readable in places but some sections require broader context
+- 2 — Intent is often unclear without the author present
+- 1 — Code is opaque throughout
+- 0 — Code cannot be read without running it
+
+### Git narrative (0–5)
+Scoring guide:
+- 5 — History is a clean, readable narrative of how the full solution was built
+- 4 — Mostly clean with one or two commits that are too broad or too vague
+- 3 — Some structure but includes dump commits or unrelated changes bundled together
+- 2 — History is noisy
+- 1 — History is a single commit or a trail of "fix" entries
+- 0 — No meaningful commit history
+
+### Explicit surface area (0–5)
+- The contract between frontend and backend is clear — what the API returns and what the UI expects are aligned and documented
+
+Scoring guide:
+- 5 — A teammate could work on either layer independently without asking the author questions
+- 4 — Mostly clear with one implicit contract between the two layers
+- 3 — Some contracts defined, others require reading across both sides
+- 2 — The frontend-backend contract is largely implicit
+- 1 — No clarity on how the two layers connect
+- 0 — Frontend and backend are not meaningfully integrated
 
 ---
 
 ## Hard fails — REQUEST_CHANGES immediately if any apply
 
-- Monetary `amount` stored as a float or JavaScript `number` instead of integer cents or a decimal type
-- Filtering or pagination implemented on the frontend after fetching all records from the API
+- Monetary amount stored as a float or JavaScript number instead of integer cents or a decimal type
+- SQL queries built by string concatenation (injection risk)
 - Server crashes on a bad payload instead of returning a 4xx with a message body
-- SQL queries built by string concatenation
+- Loading and error states completely absent on the frontend — UI assumes the happy path always succeeds
+- Hardcoded data in the UI that should be driven by API responses
+- Filtering or pagination implemented on the frontend after fetching all records from the API
 - Single commit, or all commits are "fix", "update", "wip", "initial commit"
 - README is missing, empty, or contains no runnable setup instructions
-
----
-
-## What a strong submission looks like
-
-**Correctness**
-- Correct HTTP status codes throughout: 200, 201, 400, 401, 404, 409 where applicable
-- Pagination enforced at the database/query layer, not after a full fetch
-- Filters compose correctly when multiple are applied simultaneously
-- Tests cover edge cases and failure paths, not just the happy path
-- Database schema makes sense: indexed fields, correct column types
-
-**Craft**
-- README is written for a reader who wasn't in the room — instructions are runnable as written
-- "One thing I'd do differently with more time" is specific and honest, not generic
-- Commit history tells a deliberate story
-- Error responses include a descriptive message body, not just a status code
-- Trade-offs are acknowledged explicitly rather than silently skipped
-
-**Communication**
-- PR description answers all template questions with substance
-- Assumptions are listed clearly
-- The "anything else" field is used when genuinely relevant, left blank when not
 
 ---
 
@@ -80,22 +229,52 @@ Return only a JSON object. No prose, no markdown fences, nothing outside the JSO
 
 {
   "verdict": "APPROVE" or "REQUEST_CHANGES",
-  "score": {
-    "correctness": 0 to 5,
-    "craft": 0 to 5,
-    "communication": 0 to 5
+  "pillars": {
+    "technical_discipline": {
+      "correctness": 0-5,
+      "craft": 0-5,
+      "scope_and_judgment": 0-5,
+      "score": normalised mean of the three, rounded to 1 decimal place
+    },
+    "reliability": {
+      "task_completion": 0-5,
+      "brief_adherence": 0-5,
+      "runnable_instructions": 0-5,
+      "submission_timing": 0 or 2 or 5,
+      "score": normalised mean of the four, rounded to 1 decimal place
+    },
+    "communication": {
+      "commit_messages": 0-5,
+      "pr_description": 0-5,
+      "readme": 0-5,
+      "code_documentation": 0-5,
+      "score": normalised mean of the four, rounded to 1 decimal place
+    },
+    "team_readiness": {
+      "code_transferability": 0-5,
+      "git_narrative": 0-5,
+      "explicit_surface_area": 0-5,
+      "score": normalised mean of the three, rounded to 1 decimal place
+    }
   },
-  "summary": "Two to four sentences. Direct. No diplomatic softening. State what works, what doesn't, and why.",
+  "total": sum of the four pillar scores out of 20,
+  "summary": "Three to five sentences. Direct. No diplomatic softening. State what works, what does not, and why. Reference specific files or patterns where possible.",
   "hard_fails": ["list each hard fail triggered, empty array if none"],
   "inline_comments": [
     {
       "file": "relative/path/to/file.ext",
-      "note": "Specific observation. Quote the relevant line or pattern if it helps."
+      "note": "Specific observation. Reference the exact line or pattern."
     }
   ],
   "hire_signal": "strong" or "moderate" or "weak" or "no"
 }
 
 Verdict rules:
-- APPROVE only if: no hard fails, correctness >= 3, craft >= 3, communication >= 3
+- APPROVE only if: no hard fails, all four pillar scores >= 3.0, total >= 13
 - REQUEST_CHANGES for anything else
+
+Hire signal rules:
+- strong: total >= 17, no hard fails
+- moderate: total >= 13, no hard fails
+- weak: total >= 10, may have minor issues
+- no: total < 10 or any hard fail triggered

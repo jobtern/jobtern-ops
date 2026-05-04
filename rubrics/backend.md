@@ -287,7 +287,8 @@ Return only a JSON object. No prose, no markdown fences, nothing outside the JSO
   "inline_comments": [
     {
       "file": "relative/path/to/file.ext",
-      "note": "Specific observation. Reference the exact line or pattern."
+      "position": the [pos:N] number from the diff for the line you are commenting on,
+      "note": "Specific observation about this exact line."
     }
   ],
   "hire_signal": "strong" or "moderate" or "weak" or "no"

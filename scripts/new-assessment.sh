@@ -137,6 +137,30 @@ gh api --method POST "repos/$FULL_REPO/actions/variables" \
   -f name="TASK_URL" -f value="$TASK_URL" > /dev/null
 ok "TASK_URL set"
 
+# ── Create ready-for-review label ────────────────────────────────────────────
+step "Creating ready-for-review label"
+
+gh label create "ready-for-review" \
+  --repo "$FULL_REPO" \
+  --color "0075ca" \
+  --description "Add this label when your submission is ready for review" 2>/dev/null || \
+gh label edit "ready-for-review" \
+  --repo "$FULL_REPO" \
+  --color "0075ca" \
+  --description "Add this label when your submission is ready for review" 2>/dev/null
+
+gh label create "changes-requested" \
+  --repo "$FULL_REPO" \
+  --color "e4e669" \
+  --description "Changes were requested on this submission" 2>/dev/null || true
+
+gh label create "approved" \
+  --repo "$FULL_REPO" \
+  --color "0e8a16" \
+  --description "This submission has been approved" 2>/dev/null || true
+
+ok "Labels created: ready-for-review, changes-requested, approved"
+
 # ── Apply branch protection ───────────────────────────────────────────────────
 step "Applying branch protection"
 

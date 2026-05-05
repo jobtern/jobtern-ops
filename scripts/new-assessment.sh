@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # new-assessment.sh
-# Creates a new Jobtern assessment repo from the template, sets rubric and
-# task URLs as repo variables, and applies branch protection.
+# Creates a new Jobtern assessment repo from the template, sets the rubric URL
+# as a repo variable, and applies branch protection.
 #
 # Usage:
-#   ./scripts/new-assessment.sh <repo-name> <path-to-rubric> <path-to-task>
+#   ./scripts/new-assessment.sh <repo-name> <path-to-rubric>
 #
 # Example:
-#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 \
-#     rubrics/fullstack.md \
-#     tasks/sample-fullstack-v1.md
+#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 rubrics/fullstack.md
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
 #   - ANTHROPIC_API_KEY set as an org secret (one-time setup)
+#   - TASK.md filled in on the assessment repo before sending to candidates
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -40,22 +39,20 @@ fail()  { echo -e "\n${RED}✗ $1${RESET}"; exit 1; }
 dim()   { echo -e "  ${DIM}$1${RESET}"; }
 
 # ── Args ──────────────────────────────────────────────────────────────────────
-if [[ $# -lt 3 ]]; then
-  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric> <path-to-task>"
-  echo -e "  ${DIM}Example: $0 jobtern-fullstack-2026-05 rubrics/fullstack.md tasks/sample-fullstack-v1.md${RESET}"
+if [[ $# -lt 2 ]]; then
+  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric>"
+  echo -e "  ${DIM}Example: $0 jobtern-fullstack-2026-05 rubrics/fullstack.md${RESET}"
   exit 1
 fi
 
 REPO_NAME="$1"
 RUBRIC_FILE="$2"
-TASK_FILE="$3"
 FULL_REPO="$TARGET_ORG/$REPO_NAME"
 
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
 echo -e "${DIM}Template: $TEMPLATE_REPO${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
 echo -e "${DIM}Rubric:   $RUBRIC_FILE${RESET}"
-echo -e "${DIM}Task:     $TASK_FILE${RESET}"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -82,14 +79,6 @@ if [[ ! -s "$RUBRIC_FILE" ]]; then
   fail "Rubric file is empty: $RUBRIC_FILE"
 fi
 ok "Rubric file found"
-
-if [[ ! -f "$TASK_FILE" ]]; then
-  fail "Task file not found: $TASK_FILE"
-fi
-if [[ ! -s "$TASK_FILE" ]]; then
-  fail "Task file is empty: $TASK_FILE"
-fi
-ok "Task file found"
 
 if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
   fail "Repo already exists: $FULL_REPO"
@@ -124,18 +113,11 @@ ok "Branch '$DEFAULT_BRANCH' is ready"
 step "Setting rubric and task URLs"
 
 RUBRIC_REL_PATH="${RUBRIC_FILE#./}"
-TASK_REL_PATH="${TASK_FILE#./}"
-
 RUBRIC_URL="https://raw.githubusercontent.com/$TARGET_ORG/$OPS_REPO/main/$RUBRIC_REL_PATH"
-TASK_URL="https://raw.githubusercontent.com/$TARGET_ORG/$OPS_REPO/main/$TASK_REL_PATH"
 
 gh api --method POST "repos/$FULL_REPO/actions/variables" \
   -f name="RUBRIC_URL" -f value="$RUBRIC_URL" > /dev/null
 ok "RUBRIC_URL set"
-
-gh api --method POST "repos/$FULL_REPO/actions/variables" \
-  -f name="TASK_URL" -f value="$TASK_URL" > /dev/null
-ok "TASK_URL set"
 
 # ── Create ready-for-review label ────────────────────────────────────────────
 step "Creating ready-for-review label"
@@ -159,7 +141,12 @@ gh label create "approved" \
   --color "0e8a16" \
   --description "This submission has been approved" 2>/dev/null || true
 
-ok "Labels created: ready-for-review, changes-requested, approved"
+gh label create "submission-closed" \
+  --repo "$FULL_REPO" \
+  --color "b60205" \
+  --description "Maximum submissions reached — no further reviews will run" 2>/dev/null || true
+
+ok "Labels created: ready-for-review, changes-requested, approved, submission-closed"
 
 # ── Apply branch protection ───────────────────────────────────────────────────
 step "Applying branch protection"

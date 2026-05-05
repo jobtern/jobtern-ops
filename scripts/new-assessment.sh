@@ -160,18 +160,19 @@ gh api \
     "strict": true,
     "contexts": ["Review PR"]
   },
-  "enforce_admins": false,
+  "enforce_admins": true,
   "required_pull_request_reviews": {
     "dismiss_stale_reviews": true,
     "require_code_owner_reviews": false,
     "required_approving_review_count": 1
   },
-  "restrictions": null
+  "restrictions": null,
+  "lock_branch": true
 }
 EOF
 
 ok "Branch protection applied"
-ok "Merge blocked until Claude approves"
+ok "Only org admins can merge to main"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 REPO_URL="https://github.com/$FULL_REPO"

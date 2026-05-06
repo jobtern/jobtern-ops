@@ -491,6 +491,28 @@ async function run() {
 
   if (status !== 200) {
     console.error(`Anthropic API error ${status}:`, claudeData);
+
+    // Post a holding comment so the candidate isn't left in the dark
+    await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/comments`,
+      GITHUB_TOKEN,
+      {
+        method: 'POST',
+        body: {
+          body: [
+            '## Assessment review',
+            '',
+            'We are experiencing a temporary issue with our review system. Your submission has been received — we will post your review shortly.',
+            '',
+            'No action needed on your part. Please do not remove or re-add the label.',
+            '',
+            '---',
+            '*Reviewed by Jobtern.*',
+          ].join('\n'),
+        },
+      },
+    ).catch(() => {});
+
     process.exit(1);
   }
 

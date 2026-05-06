@@ -319,7 +319,6 @@ async function run() {
     PR_OWNER,
     PR_REPO,
     PR_NUMBER,
-    PR_HEAD_SHA,
     PR_BODY,
     PR_CREATED_AT,
     PR_AUTHOR,
@@ -564,7 +563,6 @@ async function run() {
       body: {
         body: prComment,
         event: verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES',
-        commit_id: PR_HEAD_SHA,
         ...(validInlineComments.length
           ? { comments: validInlineComments }
           : {}),

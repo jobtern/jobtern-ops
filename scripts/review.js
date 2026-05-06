@@ -596,7 +596,16 @@ async function run() {
     `*Reviewed by Jobtern. Verdict: **${verdict}**.*`,
   ].join('\n');
 
-  // 10. Post GitHub review with inline comments
+  // 10. Fetch latest commit SHA from PR at runtime
+  // PR_HEAD_SHA from the workflow event may not be reachable from the base repo
+  // for fork PRs — fetching it directly ensures it's valid
+  const prData = await githubRequest(
+    `/repos/${PR_OWNER}/${PR_REPO}/pulls/${PR_NUMBER}`,
+    GITHUB_TOKEN,
+  );
+  const latestSha = prData.body?.head?.sha || PR_HEAD_SHA;
+
+  // Post the review body without inline comments first — avoids 422 from invalid positions
   const reviewRes = await githubRequest(
     `/repos/${PR_OWNER}/${PR_REPO}/pulls/${PR_NUMBER}/reviews`,
     GITHUB_TOKEN,
@@ -605,21 +614,60 @@ async function run() {
       body: {
         body: prComment,
         event: verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES',
-        ...(validInlineComments.length
-          ? { comments: validInlineComments }
-          : {}),
-        commit_id: PR_HEAD_SHA,
+        commit_id: latestSha,
       },
     },
   );
 
   if (reviewRes.status !== 200) {
     console.error('Failed to post GitHub review:', reviewRes.body);
+
+    await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/comments`,
+      GITHUB_TOKEN,
+      {
+        method: 'POST',
+        body: {
+          body: [
+            '## Assessment review',
+            '',
+            'We are experiencing a temporary issue with our review system. Your submission has been received — we will post your review shortly.',
+            '',
+            'No action needed on your part. Please do not remove or re-add the label.',
+            '',
+            '---',
+            '*Reviewed by Jobtern.*',
+          ].join('\n'),
+        },
+      },
+    ).catch(() => {});
+
     process.exit(1);
   }
 
+  // Post inline comments separately as individual review comments
+  // This avoids bundling them with the review which can cause 422 on fork PRs
+  let inlinePosted = 0;
+  for (const c of validInlineComments) {
+    const commentRes = await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/pulls/${PR_NUMBER}/comments`,
+      GITHUB_TOKEN,
+      {
+        method: 'POST',
+        body: {
+          body: c.body,
+          path: c.path,
+          position: c.position,
+          commit_id: latestSha,
+        },
+      },
+    ).catch(() => null);
+
+    if (commentRes?.status === 201) inlinePosted++;
+  }
+
   console.log(
-    `Review posted. ${validInlineComments.length} inline comment(s), ${fallbackComments.length} fallback comment(s).`,
+    `Review posted. ${inlinePosted} inline comment(s), ${fallbackComments.length} fallback comment(s).`,
   );
 
   // 11. Manage labels

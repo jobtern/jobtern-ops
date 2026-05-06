@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 # new-assessment.sh
-# Creates a new Jobtern assessment repo from the template, sets the rubric URL
+# Creates a new Jobtern assessment repo from the template, sets the role
 # as a repo variable, and applies branch protection.
 #
 # Usage:
-#   ./scripts/new-assessment.sh <repo-name> <path-to-rubric>
+#   ./scripts/new-assessment.sh <repo-name> <role>
 #
 # Example:
-#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 rubrics/fullstack.md
+#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 fullstack
+#
+# Roles: fullstack | frontend | backend
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
@@ -20,8 +22,8 @@ set -euo pipefail
 # ── CONFIG — edit these once ──────────────────────────────────────────────────
 TEMPLATE_REPO="jobtern/jobtern-assessment-template"
 TARGET_ORG="jobtern"
-OPS_REPO="jobtern-ops"
 DEFAULT_BRANCH="main"
+VALID_ROLES=("fullstack" "frontend" "backend")
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -40,19 +42,29 @@ dim()   { echo -e "  ${DIM}$1${RESET}"; }
 
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -lt 2 ]]; then
-  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <path-to-rubric>"
-  echo -e "  ${DIM}Example: $0 jobtern-fullstack-2026-05 rubrics/fullstack.md${RESET}"
+  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role>"
+  echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack${RESET}"
+  echo -e "  ${DIM}Roles: fullstack | frontend | backend${RESET}"
   exit 1
 fi
 
 REPO_NAME="$1"
-RUBRIC_FILE="$2"
+ROLE="$2"
 FULL_REPO="$TARGET_ORG/$REPO_NAME"
+
+# Validate role
+VALID=false
+for r in "${VALID_ROLES[@]}"; do
+  [[ "$ROLE" == "$r" ]] && VALID=true && break
+done
+if [[ "$VALID" == false ]]; then
+  fail "Invalid role: $ROLE. Must be one of: ${VALID_ROLES[*]}"
+fi
 
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
 echo -e "${DIM}Template: $TEMPLATE_REPO${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
-echo -e "${DIM}Rubric:   $RUBRIC_FILE${RESET}"
+echo -e "${DIM}Role:     $ROLE${RESET}"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -71,14 +83,6 @@ if ! gh repo view "$TEMPLATE_REPO" &> /dev/null; then
   fail "Template repo not found: $TEMPLATE_REPO"
 fi
 ok "Template repo found"
-
-if [[ ! -f "$RUBRIC_FILE" ]]; then
-  fail "Rubric file not found: $RUBRIC_FILE"
-fi
-if [[ ! -s "$RUBRIC_FILE" ]]; then
-  fail "Rubric file is empty: $RUBRIC_FILE"
-fi
-ok "Rubric file found"
 
 if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
   fail "Repo already exists: $FULL_REPO"
@@ -109,18 +113,15 @@ until gh api "repos/$FULL_REPO/branches/$DEFAULT_BRANCH" &> /dev/null; do
 done
 ok "Branch '$DEFAULT_BRANCH' is ready"
 
-# ── Set rubric and task URLs as repo variables ────────────────────────────────
-step "Setting rubric and task URLs"
-
-RUBRIC_REL_PATH="${RUBRIC_FILE#./}"
-RUBRIC_URL="https://raw.githubusercontent.com/$TARGET_ORG/$OPS_REPO/main/$RUBRIC_REL_PATH"
+# ── Set role as repo variable ─────────────────────────────────────────────────
+step "Setting role"
 
 gh api --method POST "repos/$FULL_REPO/actions/variables" \
-  -f name="RUBRIC_URL" -f value="$RUBRIC_URL" > /dev/null
-ok "RUBRIC_URL set"
+  -f name="ROLE" -f value="$ROLE" > /dev/null
+ok "ROLE set to: $ROLE"
 
-# ── Create ready-for-review label ────────────────────────────────────────────
-step "Creating ready-for-review label"
+# ── Create labels ─────────────────────────────────────────────────────────────
+step "Creating labels"
 
 gh label create "ready-for-review" \
   --repo "$FULL_REPO" \
@@ -172,19 +173,19 @@ gh api \
 EOF
 
 ok "Branch protection applied"
-ok "Only org admins can merge to main"
+ok "Branch locked — PRs only"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-REPO_URL="https://github.com/$FULL_REPO"
+TASK_URL="https://github.com/$FULL_REPO/edit/main/TASK.md"
 
 echo -e "\n${GREEN}${BOLD}Done.${RESET}"
 echo ""
-echo -e "  Send this to the candidate — they fork it and open a PR."
-echo -e "  ${DIM}Review workflow fires automatically on every PR open or push.${RESET}"
+echo -e "  Fill in ${BOLD}TASK.md${RESET} before sending to candidates."
+echo -e "  ${DIM}$TASK_URL${RESET}"
 echo ""
 
 if command -v open &> /dev/null; then
-  open "$REPO_URL"
+  open "$TASK_URL"
 elif command -v xdg-open &> /dev/null; then
-  xdg-open "$REPO_URL"
+  xdg-open "$TASK_URL"
 fi

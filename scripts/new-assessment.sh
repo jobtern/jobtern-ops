@@ -122,12 +122,12 @@ ok "VS Code closed — continuing"
 
 # ── Verify files were edited ──────────────────────────────────────────────────
 if grep -q '{{ company_name }}' "$TEMP_DIR/README.md" 2>/dev/null; then
-  warn "README.md still contains {{ company_name }} — you may have forgotten to fill it in."
+  fail "README.md still contains {{ company_name }} — fill it in before continuing."
 fi
 
 TASK_CONTENT=$(cat "$TEMP_DIR/TASK.md" 2>/dev/null || echo "")
 if echo "$TASK_CONTENT" | grep -q 'Update this file'; then
-  warn "TASK.md appears to still be the placeholder — you may have forgotten to fill it in."
+  fail "TASK.md appears to still be the placeholder — fill it in before continuing."
 fi
 
 # ── Create empty GitHub repo and push ────────────────────────────────────────

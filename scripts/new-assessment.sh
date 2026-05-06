@@ -8,7 +8,7 @@
 #   ./scripts/new-assessment.sh <repo-name> <role>
 #
 # Example:
-#   ./scripts/new-assessment.sh ambidexters-fullstack-2026-05 fullstack
+#   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack
 #
 # Roles: fullstack | frontend | backend
 #
@@ -126,7 +126,7 @@ if grep -q '{{ company_name }}' "$TEMP_DIR/README.md" 2>/dev/null; then
 fi
 
 TASK_CONTENT=$(cat "$TEMP_DIR/TASK.md" 2>/dev/null || echo "")
-if echo "$TASK_CONTENT" | grep -q 'Jobtern: replace this file'; then
+if echo "$TASK_CONTENT" | grep -q 'Update this file'; then
   warn "TASK.md appears to still be the placeholder — you may have forgotten to fill it in."
 fi
 

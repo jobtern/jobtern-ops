@@ -338,6 +338,7 @@ async function run() {
     PR_OWNER,
     PR_REPO,
     PR_NUMBER,
+    PR_HEAD_SHA,
     PR_BODY,
     PR_CREATED_AT,
     PR_AUTHOR,
@@ -595,7 +596,7 @@ async function run() {
     `*Reviewed by Jobtern. Verdict: **${verdict}**.*`,
   ].join('\n');
 
-  // 10. Post GitHub review with inline comments
+  // 10. Post GitHub review — inline comments disabled temporarily to isolate 422
   const reviewRes = await githubRequest(
     `/repos/${PR_OWNER}/${PR_REPO}/pulls/${PR_NUMBER}/reviews`,
     GITHUB_TOKEN,
@@ -604,9 +605,10 @@ async function run() {
       body: {
         body: prComment,
         event: verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES',
-        ...(validInlineComments.length
-          ? { comments: validInlineComments }
-          : {}),
+        // ...(validInlineComments.length
+        //   ? { comments: validInlineComments }
+        //   : {}),
+        commit_id: PR_HEAD_SHA,
       },
     },
   );

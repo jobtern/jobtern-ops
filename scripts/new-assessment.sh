@@ -15,7 +15,6 @@
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
 #   - ANTHROPIC_API_KEY set as an org secret (one-time setup)
-#   - TASK.md filled in on the assessment repo before sending to candidates
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -62,7 +61,6 @@ if [[ "$VALID" == false ]]; then
 fi
 
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
-echo -e "${DIM}Template: $TEMPLATE_REPO${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
 echo -e "${DIM}Role:     $ROLE${RESET}"
 
@@ -74,6 +72,12 @@ if ! command -v gh &> /dev/null; then
 fi
 if ! gh auth status &> /dev/null; then
   fail "Not authenticated with GitHub CLI. Run: gh auth login"
+fi
+if ! command -v git &> /dev/null; then
+  fail "git not found."
+fi
+if ! command -v code &> /dev/null; then
+  fail "VS Code CLI (code) not found. Install it from VS Code: Shell Command → Install 'code' in PATH"
 fi
 
 GH_USER=$(gh api user --jq '.login')
@@ -88,30 +92,64 @@ if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
   fail "Repo already exists: $FULL_REPO"
 fi
 
-# ── Create repo from template ─────────────────────────────────────────────────
-step "Creating repo from template"
+# ── Clone template into temp directory ───────────────────────────────────────
+step "Cloning template"
+
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+# Get default branch SHA and tree of template repo
+TEMPLATE_TREE=$(gh api "repos/$TEMPLATE_REPO/git/trees/HEAD?recursive=1" --jq '.tree[]')
+
+# Clone via git
+git clone --quiet "https://github.com/$TEMPLATE_REPO.git" "$TEMP_DIR"
+rm -rf "$TEMP_DIR/.git"
+ok "Template cloned to temp directory"
+
+# ── Open in VS Code for editing ───────────────────────────────────────────────
+step "Edit README.md and TASK.md"
+
+echo ""
+echo -e "  ${BOLD}VS Code will open. Fill in:${RESET}"
+echo -e "  ${DIM}• README.md — replace {{ company_name }} with the client name${RESET}"
+echo -e "  ${DIM}• TASK.md   — paste the task brief${RESET}"
+echo -e "  ${DIM}Close the VS Code window when done to continue.${RESET}"
+echo ""
+
+code --new-window --wait "$TEMP_DIR"
+
+ok "VS Code closed — continuing"
+
+# ── Verify files were edited ──────────────────────────────────────────────────
+if grep -q '{{ company_name }}' "$TEMP_DIR/README.md" 2>/dev/null; then
+  warn "README.md still contains {{ company_name }} — you may have forgotten to fill it in."
+fi
+
+TASK_CONTENT=$(cat "$TEMP_DIR/TASK.md" 2>/dev/null || echo "")
+if echo "$TASK_CONTENT" | grep -q 'Replace this file'; then
+  warn "TASK.md appears to still be the placeholder — you may have forgotten to fill it in."
+fi
+
+# ── Create empty GitHub repo and push ────────────────────────────────────────
+step "Creating GitHub repo"
 
 gh repo create "$FULL_REPO" \
-  --template "$TEMPLATE_REPO" \
   --public \
-  --description "Jobtern assessment — $(date +%Y-%m-%d)"
+  --description "Jobtern assessment — $(date +%Y-%m-%d)" > /dev/null
 
 ok "Repo created: https://github.com/$FULL_REPO"
 
-echo ""
-dim "Waiting for repo initialisation..."
-sleep 4
+step "Pushing initial commit"
 
-ATTEMPTS=0
-until gh api "repos/$FULL_REPO/branches/$DEFAULT_BRANCH" &> /dev/null; do
-  ATTEMPTS=$((ATTEMPTS + 1))
-  if [[ $ATTEMPTS -ge 8 ]]; then
-    fail "Timed out waiting for branch '$DEFAULT_BRANCH'."
-  fi
-  dim "  branch not ready yet, retrying in 3s..."
-  sleep 3
-done
-ok "Branch '$DEFAULT_BRANCH' is ready"
+cd "$TEMP_DIR"
+git init --quiet
+git checkout -b main
+git add .
+git commit --quiet -m "chore: initialise assessment repo"
+git remote add origin "https://github.com/$FULL_REPO.git"
+git push --quiet -u origin main
+
+ok "Initial commit pushed"
 
 # ── Set role as repo variable ─────────────────────────────────────────────────
 step "Setting role"
@@ -176,16 +214,16 @@ ok "Branch protection applied"
 ok "Branch locked — PRs only"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-TASK_URL="https://github.com/$FULL_REPO/edit/main/TASK.md"
+REPO_URL="https://github.com/$FULL_REPO"
 
 echo -e "\n${GREEN}${BOLD}Done.${RESET}"
 echo ""
-echo -e "  Fill in ${BOLD}TASK.md${RESET} before sending to candidates."
-echo -e "  ${DIM}$TASK_URL${RESET}"
+echo -e "  Send this to the candidate — they fork it and open a PR."
+echo -e "  ${BOLD}$REPO_URL${RESET}"
 echo ""
 
 if command -v open &> /dev/null; then
-  open "$TASK_URL"
+  open "$REPO_URL"
 elif command -v xdg-open &> /dev/null; then
-  xdg-open "$TASK_URL"
+  xdg-open "$REPO_URL"
 fi

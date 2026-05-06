@@ -8,7 +8,7 @@
 #   ./scripts/new-assessment.sh <repo-name> <role>
 #
 # Example:
-#   ./scripts/new-assessment.sh jobtern-fullstack-2026-05 fullstack
+#   ./scripts/new-assessment.sh ambidexters-fullstack-2026-05 fullstack
 #
 # Roles: fullstack | frontend | backend
 #
@@ -126,7 +126,7 @@ if grep -q '{{ company_name }}' "$TEMP_DIR/README.md" 2>/dev/null; then
 fi
 
 TASK_CONTENT=$(cat "$TEMP_DIR/TASK.md" 2>/dev/null || echo "")
-if echo "$TASK_CONTENT" | grep -q 'Replace this file'; then
+if echo "$TASK_CONTENT" | grep -q 'Jobtern: replace this file'; then
   warn "TASK.md appears to still be the placeholder — you may have forgotten to fill it in."
 fi
 
@@ -144,6 +144,8 @@ step "Pushing initial commit"
 cd "$TEMP_DIR"
 git init --quiet
 git checkout -b main
+git config user.name "jobtern-admin"
+git config user.email "admin@jobtern.com"
 git add .
 git commit --quiet -m "chore: initialise assessment repo"
 git remote add origin "https://github.com/$FULL_REPO.git"

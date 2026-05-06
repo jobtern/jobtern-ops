@@ -10,6 +10,7 @@ Paste the prompt below into Claude, followed by the job description and optional
 You are helping design a technical screening task for Jobtern, a junior engineer screening service.
 
 Jobtern's assessment philosophy:
+
 - Tasks must feel specific to a real job description, not generic
 - Tasks must be completable in under 48 hours by a junior engineer (≤ 2 years experience)
 - Tasks must be framework-agnostic — the candidate chooses their stack
@@ -24,8 +25,9 @@ The task file will live in the assessment repo as `TASK.md`. Candidates read it 
 ## What a strong task looks like
 
 A strong task:
+
 - Is grounded in the domain of the job description (fintech, SaaS, enterprise, etc.)
-- Has a clear, realistic scenario that explains *why* this work matters
+- Has a clear, realistic scenario that explains _why_ this work matters
 - Specifies deliverables precisely — what to build, what endpoints or UI to include
 - Embeds discipline traps naturally — constraints that separate careful engineers from careless ones (e.g. amount must be stored as integer cents, pagination must be enforced server-side)
 - Requires a README inside `solution/` covering: how to run it, assumptions made, one thing they'd do differently with more time
@@ -58,9 +60,10 @@ Generate the task for the appropriate track based on the job description:
 
 ## Output format
 
-Generate exactly one task in the following structure:
+Generate exactly one task. Return it as raw markdown only — no preamble, no explanation, no code fences wrapping the entire output. The markdown should be ready to paste directly into `TASK.md` without any editing.
 
-```markdown
+The task must follow this structure exactly:
+
 # Task — [Short descriptive title]
 
 ## Context
@@ -92,7 +95,6 @@ Generate exactly one task in the following structure:
 ## What we're looking for
 
 We are not looking for perfection. We are looking for how you think, how you build, and how you communicate your decisions. The README and commit history are as much a part of this submission as the code itself.
-```
 
 ---
 

@@ -349,7 +349,7 @@ async function run() {
     process.exit(1);
   }
 
-  // 1. Fetch prior reviews to determine attempt number
+  // 1. Fetch prior reviews — attempt count is the source of truth, candidates cannot modify it
   const priorReviews = await fetchPriorReviews(
     PR_OWNER,
     PR_REPO,
@@ -361,43 +361,26 @@ async function run() {
 
   console.log(`Attempt: ${ordinal(attemptNumber)} | Modifier: ${modifier}`);
 
-  // Cap at 3 attempts
-  if (attemptNumber > 3) {
-    const capComment = [
-      '## Assessment review',
-      '',
-      'You have reached the maximum number of submissions for this assessment.',
-      'No further reviews will be run on this pull request.',
-      '',
-      '---',
-      '*Reviewed by Jobtern.*',
-    ].join('\n');
+  // 0. Check if submission is already closed — exit silently
+  // Uses attempt count (tamper-proof) + label check as belt-and-suspenders
+  const labelsRes = await githubRequest(
+    `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+    GITHUB_TOKEN,
+  );
+  const hasSubmissionClosed =
+    Array.isArray(labelsRes.body) &&
+    labelsRes.body.some((l) => l.name === 'submission-closed');
 
-    await githubRequest(
-      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/comments`,
-      GITHUB_TOKEN,
-      { method: 'POST', body: { body: capComment } },
-    );
-
-    await githubRequest(
-      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/ready-for-review`,
-      GITHUB_TOKEN,
-      { method: 'DELETE' },
-    ).catch(() => {});
-
-    await githubRequest(
-      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/changes-requested`,
-      GITHUB_TOKEN,
-      { method: 'DELETE' },
-    ).catch(() => {});
-
-    await githubRequest(
-      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
-      GITHUB_TOKEN,
-      { method: 'POST', body: { labels: ['submission-closed'] } },
-    ).catch(() => console.warn('Could not add submission-closed label'));
-
-    console.log('Maximum attempts reached. No review posted.');
+  if (hasSubmissionClosed || priorReviews.length >= 3) {
+    // Re-add submission-closed in case the candidate removed it
+    if (!hasSubmissionClosed && priorReviews.length >= 3) {
+      await githubRequest(
+        `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+        GITHUB_TOKEN,
+        { method: 'POST', body: { labels: ['submission-closed'] } },
+      ).catch(() => {});
+    }
+    console.log('Submission is closed — skipping review.');
     return;
   }
 
@@ -565,14 +548,76 @@ async function run() {
     }
   }
 
-  // 9. Build candidate-facing PR comment
+  // 9. Build structured feedback block — used for closing comments
+  const structuredFeedback = [
+    '## Assessment feedback',
+    '',
+    review.summary,
+    '',
+    '### What worked',
+    (() => {
+      const strengths = [];
+      const p2 = review.pillars || {};
+      if ((p2.technical_discipline?.score ?? 0) >= 3.5)
+        strengths.push(
+          'Technical discipline — code structure and correctness were solid.',
+        );
+      if ((p2.reliability?.score ?? 0) >= 3.5)
+        strengths.push(
+          'Reliability — deliverables were complete and instructions were runnable.',
+        );
+      if ((p2.communication?.score ?? 0) >= 3.5)
+        strengths.push(
+          'Communication — commits, PR description, and README showed clear intent.',
+        );
+      if ((p2.team_readiness?.score ?? 0) >= 3.5)
+        strengths.push('Team readiness — code was readable and transferable.');
+      return strengths.length > 0
+        ? strengths.map((s) => `- ${s}`).join('\n')
+        : '- The submission showed effort and engagement with the task.';
+    })(),
+    '',
+    '### What held it back',
+    hasHardFails
+      ? review.hard_fails.map((f) => `- ${f}`).join('\n')
+      : (() => {
+          const gaps = [];
+          const p2 = review.pillars || {};
+          if ((p2.technical_discipline?.score ?? 0) < 3.0)
+            gaps.push(
+              'Technical discipline — correctness or code structure did not meet the bar.',
+            );
+          if ((p2.reliability?.score ?? 0) < 3.0)
+            gaps.push(
+              'Reliability — deliverables were incomplete or instructions were insufficient.',
+            );
+          if ((p2.communication?.score ?? 0) < 3.0)
+            gaps.push(
+              'Communication — commits, PR description, or README were thin.',
+            );
+          if ((p2.team_readiness?.score ?? 0) < 3.0)
+            gaps.push(
+              'Team readiness — code readability and transferability needed work.',
+            );
+          return gaps.length > 0
+            ? gaps.map((g) => `- ${g}`).join('\n')
+            : '- The submission fell just short of the overall threshold.';
+        })(),
+    '',
+    '### Areas to develop',
+    '- Write commits that tell the story of how you built it — not just what changed.',
+    '- Document decisions in the README, not just setup instructions.',
+    '- Read specs carefully and verify your output matches the contract before submitting.',
+  ].join('\n');
+
+  // 9b. Build candidate-facing PR comment
   const trialsLeft = 3 - attemptNumber;
   const attemptLine =
     attemptNumber === 1
       ? `_This is your first submission. You have ${trialsLeft} more trial${trialsLeft === 1 ? '' : 's'}._`
-      : attemptNumber === 3
-        ? '_This is your 3rd and final submission._'
-        : `_This is your ${ordinal(attemptNumber)} submission. You have ${trialsLeft} more trial${trialsLeft === 1 ? '' : 's'}. Resubmissions carry a score penalty._`;
+      : attemptNumber === 2
+        ? `_This is your ${ordinal(attemptNumber)} submission. You have ${trialsLeft} more trial. Resubmissions carry a score penalty._`
+        : '_This is your 3rd and final submission. No further reviews will run on this PR._';
 
   const hardFailSection = hasHardFails
     ? '\n\n### Hard fails\n' + review.hard_fails.map((f) => `- ${f}`).join('\n')
@@ -583,18 +628,58 @@ async function run() {
       fallbackComments.map((c) => `**\`${c.file}\`**\n${c.note}`).join('\n\n')
     : '';
 
-  const prComment = [
-    '## Assessment review',
-    '',
-    attemptLine,
-    '',
-    review.summary,
-    hardFailSection,
-    fallbackSection,
-    '',
-    '---',
-    `*Reviewed by Jobtern. Verdict: **${verdict}**.*`,
-  ].join('\n');
+  // Check if any prior attempt was approved
+  const hadPriorApproval = priorReviews.some((r) => r.state === 'APPROVED');
+
+  // On attempt 3 with no approval — post a comment, not a review verdict
+  const isFinalUnapproved =
+    attemptNumber === 3 && verdict === 'REQUEST_CHANGES';
+
+  let prComment;
+  let reviewEvent;
+
+  if (isFinalUnapproved) {
+    if (hadPriorApproval) {
+      prComment = [
+        '## Assessment complete',
+        '',
+        '_This is your 3rd and final submission. No further reviews will run on this PR._',
+        '',
+        'Your final submission did not meet the approval threshold. We will use your previously approved submission for evaluation.',
+        '',
+        structuredFeedback,
+        '',
+        '---',
+        '*Reviewed by Jobtern.*',
+      ].join('\n');
+    } else {
+      prComment = [
+        '## Assessment complete',
+        '',
+        '_This is your 3rd and final submission. No further reviews will run on this PR._',
+        '',
+        structuredFeedback,
+        '',
+        '---',
+        '*Reviewed by Jobtern.*',
+      ].join('\n');
+    }
+    reviewEvent = 'COMMENT';
+  } else {
+    prComment = [
+      '## Assessment review',
+      '',
+      attemptLine,
+      '',
+      review.summary,
+      hardFailSection,
+      fallbackSection,
+      '',
+      '---',
+      `*Reviewed by Jobtern. Verdict: **${verdict}**.*`,
+    ].join('\n');
+    reviewEvent = verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES';
+  }
 
   // 10. Fetch latest commit SHA from PR at runtime
   // PR_HEAD_SHA from the workflow event may not be reachable from the base repo
@@ -613,7 +698,7 @@ async function run() {
       method: 'POST',
       body: {
         body: prComment,
-        event: verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES',
+        event: reviewEvent,
         commit_id: latestSha,
       },
     },
@@ -671,10 +756,6 @@ async function run() {
   );
 
   // 11. Manage labels
-  const labelToAdd = verdict === 'APPROVE' ? 'approved' : 'changes-requested';
-  const labelToRemove =
-    verdict === 'APPROVE' ? 'changes-requested' : 'approved';
-
   await githubRequest(
     `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/ready-for-review`,
     GITHUB_TOKEN,
@@ -682,16 +763,41 @@ async function run() {
   ).catch(() => {});
 
   await githubRequest(
-    `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/${encodeURIComponent(labelToRemove)}`,
+    `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/changes-requested`,
     GITHUB_TOKEN,
     { method: 'DELETE' },
   ).catch(() => {});
 
   await githubRequest(
-    `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+    `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels/approved`,
     GITHUB_TOKEN,
-    { method: 'POST', body: { labels: [labelToAdd] } },
-  ).catch(() => console.warn(`Could not add label: ${labelToAdd}`));
+    { method: 'DELETE' },
+  ).catch(() => {});
+
+  if (isFinalUnapproved) {
+    // Attempt 3, not approved — submission-closed only
+    await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+      GITHUB_TOKEN,
+      { method: 'POST', body: { labels: ['submission-closed'] } },
+    ).catch(() => console.warn('Could not add submission-closed label'));
+  } else if (verdict === 'APPROVE') {
+    // Approved — add approved label, plus submission-closed if final attempt
+    const labelsToAdd = ['approved'];
+    if (attemptNumber >= 3) labelsToAdd.push('submission-closed');
+    await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+      GITHUB_TOKEN,
+      { method: 'POST', body: { labels: labelsToAdd } },
+    ).catch(() => console.warn('Could not add approved label'));
+  } else {
+    // Attempts 1 or 2, not approved — changes-requested
+    await githubRequest(
+      `/repos/${PR_OWNER}/${PR_REPO}/issues/${PR_NUMBER}/labels`,
+      GITHUB_TOKEN,
+      { method: 'POST', body: { labels: ['changes-requested'] } },
+    ).catch(() => console.warn('Could not add changes-requested label'));
+  }
 
   // 12. Log to Notion
   if (NOTION_API_KEY && NOTION_DATABASE_ID) {

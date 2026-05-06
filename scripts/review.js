@@ -107,37 +107,56 @@ async function callClaude({ systemPrompt, userPrompt, apiKey }) {
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   });
-  return new Promise((resolve, reject) => {
-    const req = https.request(
-      {
-        hostname: 'api.anthropic.com',
-        path: '/v1/messages',
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
+
+  const maxRetries = 4;
+  const baseDelay = 10000; // 10 seconds
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const result = await new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: 'api.anthropic.com',
+          path: '/v1/messages',
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
         },
-      },
-      (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve({ status: res.statusCode, body: JSON.parse(body) });
-          } catch (e) {
-            reject(new Error(`Failed to parse Claude response: ${body}`));
-          }
-        });
-      },
-    );
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () => {
+            try {
+              resolve({ status: res.statusCode, body: JSON.parse(body) });
+            } catch (e) {
+              reject(new Error(`Failed to parse Claude response: ${body}`));
+            }
+          });
+        },
+      );
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+
+    if (result.status === 529 || result.status === 429) {
+      if (attempt < maxRetries) {
+        const delay = baseDelay * attempt;
+        console.log(
+          `Anthropic API ${result.status} — retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})...`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    }
+
+    return result;
+  }
 }
 
 // ── Notion logging ────────────────────────────────────────────────────────────

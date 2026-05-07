@@ -10,7 +10,7 @@
 # Example:
 #   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack
 #
-# Roles: fullstack | frontend | backend
+# Roles: fullstack | frontend | backend | mobile | qa | data-engineer
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
@@ -22,7 +22,7 @@ set -euo pipefail
 TEMPLATE_REPO="jobtern/jobtern-assessment-template"
 TARGET_ORG="jobtern"
 DEFAULT_BRANCH="main"
-VALID_ROLES=("fullstack" "frontend" "backend")
+VALID_ROLES=("fullstack" "frontend" "backend" "mobile" "qa" "data-engineer")
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ dim()   { echo -e "  ${DIM}$1${RESET}"; }
 if [[ $# -lt 2 ]]; then
   echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role>"
   echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack${RESET}"
-  echo -e "  ${DIM}Roles: fullstack | frontend | backend${RESET}"
+  echo -e "  ${DIM}Roles: fullstack | frontend | backend | mobile | qa | data-engineer${RESET}"
   exit 1
 fi
 
@@ -97,9 +97,6 @@ step "Cloning template"
 
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
-
-# Get default branch SHA and tree of template repo
-TEMPLATE_TREE=$(gh api "repos/$TEMPLATE_REPO/git/trees/HEAD?recursive=1" --jq '.tree[]')
 
 # Clone via git
 git clone --quiet "https://github.com/$TEMPLATE_REPO.git" "$TEMP_DIR"

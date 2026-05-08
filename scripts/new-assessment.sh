@@ -5,15 +5,17 @@
 # as a repo variable, and applies branch protection.
 #
 # Usage:
-#   ./scripts/new-assessment.sh <repo-name> <role>
+#   ./scripts/new-assessment.sh <repo-name> <role> [timezone]
 #
 # Example:
-#   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack
+#   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack America/New_York
 #
-# Roles: fullstack | frontend | backend | mobile | qa | data-engineer
+# Roles:     fullstack | frontend | backend | mobile | qa | data-engineer
+# Timezone:  Any valid IANA timezone identifier. Defaults to America/New_York.
 #
 # Requirements:
 #   - GitHub CLI (gh) installed and authenticated
+#   - Node.js installed (used for deadline computation)
 #   - ANTHROPIC_API_KEY set as an org secret (one-time setup)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -22,6 +24,7 @@ set -euo pipefail
 TEMPLATE_REPO="jobtern/jobtern-assessment-template"
 TARGET_ORG="jobtern"
 DEFAULT_BRANCH="main"
+DEFAULT_TZ="America/New_York"
 VALID_ROLES=("fullstack" "frontend" "backend" "mobile" "qa" "data-engineer")
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -41,17 +44,19 @@ dim()   { echo -e "  ${DIM}$1${RESET}"; }
 
 # ── Args ──────────────────────────────────────────────────────────────────────
 if [[ $# -lt 2 ]]; then
-  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role>"
-  echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack${RESET}"
+  echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role> [timezone]"
+  echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack America/New_York${RESET}"
   echo -e "  ${DIM}Roles: fullstack | frontend | backend | mobile | qa | data-engineer${RESET}"
+  echo -e "  ${DIM}Timezone: any IANA identifier — defaults to America/New_York${RESET}"
   exit 1
 fi
 
 REPO_NAME="$1"
 ROLE="$2"
+CANDIDATE_TZ="${3:-$DEFAULT_TZ}"
 FULL_REPO="$TARGET_ORG/$REPO_NAME"
 
-# Validate role
+# ── Validate role ─────────────────────────────────────────────────────────────
 VALID=false
 for r in "${VALID_ROLES[@]}"; do
   [[ "$ROLE" == "$r" ]] && VALID=true && break
@@ -63,6 +68,7 @@ fi
 echo -e "\n${BOLD}Jobtern · New assessment repo${RESET}"
 echo -e "${DIM}Target:   $FULL_REPO${RESET}"
 echo -e "${DIM}Role:     $ROLE${RESET}"
+echo -e "${DIM}Timezone: $CANDIDATE_TZ${RESET}"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 step "Preflight checks"
@@ -75,6 +81,9 @@ if ! gh auth status &> /dev/null; then
 fi
 if ! command -v git &> /dev/null; then
   fail "git not found."
+fi
+if ! command -v node &> /dev/null; then
+  fail "Node.js not found. Required for deadline computation."
 fi
 if ! command -v code &> /dev/null; then
   fail "VS Code CLI (code) not found. Install it from VS Code: Shell Command → Install 'code' in PATH"
@@ -92,16 +101,88 @@ if gh repo view "$FULL_REPO" &> /dev/null 2>&1; then
   fail "Repo already exists: $FULL_REPO"
 fi
 
-# ── Clone template into temp directory ───────────────────────────────────────
+# ── Validate timezone and compute deadline ────────────────────────────────────
+step "Computing deadline"
+
+DEADLINE_DATA=$(node -e "
+const tz = process.argv[1];
+
+// Validate timezone
+try {
+  new Intl.DateTimeFormat('en-US', { timeZone: tz });
+} catch (e) {
+  process.stderr.write('INVALID_TZ');
+  process.exit(1);
+}
+
+const now = new Date();
+
+// Today's date in candidate timezone (YYYY-MM-DD)
+const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+const [y, m, d] = todayStr.split('-').map(Number);
+
+// +2 calendar days — JS Date handles month/year boundaries
+const dlDate = new Date(y, m - 1, d + 2);
+const dlYear  = dlDate.getFullYear();
+const dlMonth = String(dlDate.getMonth() + 1).padStart(2, '0');
+const dlDay   = String(dlDate.getDate()).padStart(2, '0');
+const dlDateStr = dlYear + '-' + dlMonth + '-' + dlDay;
+
+// Human-readable date in target timezone
+const displayDate = new Intl.DateTimeFormat('en-US', {
+  timeZone: tz,
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date(dlDateStr + 'T12:00:00Z'));
+
+// Timezone abbreviation on that date
+const tzAbbr = new Intl.DateTimeFormat('en-US', {
+  timeZone: tz,
+  timeZoneName: 'short',
+}).formatToParts(new Date(dlDateStr + 'T12:00:00Z'))
+  .find(p => p.type === 'timeZoneName').value;
+
+// ISO deadline string (no offset — stored alongside CANDIDATE_TZ)
+const isoDeadline = dlDateStr + 'T20:00';
+
+// Full human-readable deadline for TASK.md
+const humanDeadline = displayDate + ' at 8:00pm ' + tzAbbr;
+
+process.stdout.write([isoDeadline, humanDeadline].join('|'));
+" "$CANDIDATE_TZ" 2>&1)
+
+if [[ "$DEADLINE_DATA" == *"INVALID_TZ"* ]]; then
+  fail "Invalid timezone: $CANDIDATE_TZ. Use a valid IANA identifier (e.g. America/New_York, Africa/Lagos, Europe/London)"
+fi
+
+ISO_DEADLINE="${DEADLINE_DATA%%|*}"
+HUMAN_DEADLINE="${DEADLINE_DATA#*|}"
+
+ok "Deadline: $HUMAN_DEADLINE"
+
+# ── Clone template into temp directory ────────────────────────────────────────
 step "Cloning template"
 
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-# Clone via git
 git clone --quiet "https://github.com/$TEMPLATE_REPO.git" "$TEMP_DIR"
 rm -rf "$TEMP_DIR/.git"
 ok "Template cloned to temp directory"
+
+# ── Inject deadline into TASK.md ──────────────────────────────────────────────
+step "Injecting deadline"
+
+if grep -q '{{ deadline }}' "$TEMP_DIR/TASK.md" 2>/dev/null; then
+  # macOS and Linux compatible sed
+  sed -i.bak "s|{{ deadline }}|$HUMAN_DEADLINE|g" "$TEMP_DIR/TASK.md"
+  rm -f "$TEMP_DIR/TASK.md.bak"
+  ok "Deadline injected: $HUMAN_DEADLINE"
+else
+  warn "No {{ deadline }} placeholder found in TASK.md — skipping injection"
+fi
 
 # ── Open in VS Code for editing ───────────────────────────────────────────────
 step "Edit README.md and TASK.md"
@@ -109,7 +190,7 @@ step "Edit README.md and TASK.md"
 echo ""
 echo -e "  ${BOLD}VS Code will open. Fill in:${RESET}"
 echo -e "  ${DIM}• README.md — replace {{ company_name }} with the client name${RESET}"
-echo -e "  ${DIM}• TASK.md   — paste the task brief${RESET}"
+echo -e "  ${DIM}• TASK.md   — paste the task brief (deadline already injected)${RESET}"
 echo -e "  ${DIM}Close the VS Code window when done to continue.${RESET}"
 echo ""
 
@@ -127,7 +208,7 @@ if echo "$TASK_CONTENT" | grep -q 'Update this file'; then
   fail "TASK.md appears to still be the placeholder — fill it in before continuing."
 fi
 
-# ── Create empty GitHub repo and push ────────────────────────────────────────
+# ── Create GitHub repo and push ───────────────────────────────────────────────
 step "Creating GitHub repo"
 
 gh repo create "$FULL_REPO" \
@@ -150,12 +231,20 @@ git push --quiet -u origin main
 
 ok "Initial commit pushed"
 
-# ── Set role as repo variable ─────────────────────────────────────────────────
-step "Setting role"
+# ── Set repo variables ────────────────────────────────────────────────────────
+step "Setting repo variables"
 
 gh api --method POST "repos/$FULL_REPO/actions/variables" \
   -f name="ROLE" -f value="$ROLE" > /dev/null
 ok "ROLE set to: $ROLE"
+
+gh api --method POST "repos/$FULL_REPO/actions/variables" \
+  -f name="DEADLINE" -f value="$ISO_DEADLINE" > /dev/null
+ok "DEADLINE set to: $ISO_DEADLINE"
+
+gh api --method POST "repos/$FULL_REPO/actions/variables" \
+  -f name="CANDIDATE_TZ" -f value="$CANDIDATE_TZ" > /dev/null
+ok "CANDIDATE_TZ set to: $CANDIDATE_TZ"
 
 # ── Create labels ─────────────────────────────────────────────────────────────
 step "Creating labels"
@@ -217,8 +306,10 @@ REPO_URL="https://github.com/$FULL_REPO"
 
 echo -e "\n${GREEN}${BOLD}Done.${RESET}"
 echo ""
-echo -e "  Send this to the candidate — they fork it and open a PR."
-echo -e "  ${BOLD}$REPO_URL${RESET}"
+echo -e "  ${BOLD}Repo:${RESET}     $REPO_URL"
+echo -e "  ${BOLD}Deadline:${RESET} $HUMAN_DEADLINE"
+echo ""
+echo -e "  Send the repo URL to the candidate — they fork it and open a PR."
 echo ""
 
 if command -v open &> /dev/null; then

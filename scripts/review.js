@@ -25,6 +25,8 @@ const {
   getModifier,
   getHireSignal,
   computeVerdict,
+  getDeadlineWAT,
+  isSubmissionOnTime,
   ordinal,
 } = require('./lib/scoring');
 const {
@@ -32,7 +34,7 @@ const {
   buildUserPrompt,
   buildPrComment,
 } = require('./lib/format');
-const { logToNotion, dumpToConsole } = require('./lib/notion');
+const { logToNotion, dumpToConsole, toWAT } = require('./lib/notion');
 
 async function run() {
   const {
@@ -47,6 +49,9 @@ async function run() {
     PR_HEAD_SHA,
     PR_BODY,
     PR_AUTHOR,
+    PR_CREATED_AT,
+    DEADLINE,
+    CANDIDATE_TZ,
   } = process.env;
 
   if (!ROLE) {
@@ -83,7 +88,22 @@ async function run() {
     return;
   }
 
-  // ── 3. Fetch rubric (base + role patch) and task ────────────────────────────
+  // ── 3. Deadline check ───────────────────────────────────────────────────────
+  const onTime = isSubmissionOnTime(PR_CREATED_AT, DEADLINE, CANDIDATE_TZ);
+  if (onTime === null) {
+    console.warn('Deadline data missing — skipping on-time check.');
+  } else {
+    console.log(
+      `Submission ${onTime ? 'on time' : 'LATE'} (deadline: ${DEADLINE} ${CANDIDATE_TZ})`,
+    );
+  }
+
+  // Convert both timestamps to WAT for Notion display
+  const submittedAtWAT = PR_CREATED_AT ? toWAT(PR_CREATED_AT) : null;
+  const deadlineWAT =
+    DEADLINE && CANDIDATE_TZ ? getDeadlineWAT(DEADLINE, CANDIDATE_TZ) : null;
+
+  // ── 4. Fetch rubric (base + role patch) and task ────────────────────────────
   console.log('Fetching rubric...');
   const [baseRubric, rolePatch, task] = await Promise.all([
     fetchRepoFile('jobtern', 'jobtern-ops', 'rubrics/base.md', GITHUB_TOKEN),
@@ -97,12 +117,12 @@ async function run() {
   ]);
   const rubric = `${baseRubric}\n\n---\n\n${rolePatch}`;
 
-  // ── 4. Fetch and annotate diff ──────────────────────────────────────────────
+  // ── 5. Fetch and annotate diff ──────────────────────────────────────────────
   const rawDiff = await fetchDiff(PR_OWNER, PR_REPO, PR_NUMBER, GITHUB_TOKEN);
   const { annotatedDiff, positionMap } = annotateDiff(rawDiff);
   const diff = truncateDiff(annotatedDiff);
 
-  // ── 5. Build prompts and call Claude ────────────────────────────────────────
+  // ── 6. Build prompts and call Claude ────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(task, rubric);
   const userPrompt = buildUserPrompt({
     prBody: PR_BODY,
@@ -128,7 +148,7 @@ async function run() {
     process.exit(1);
   }
 
-  // ── 6. Parse Claude response ────────────────────────────────────────────────
+  // ── 7. Parse Claude response ────────────────────────────────────────────────
   let review;
   try {
     review = parseReview(extractText(claudeData));
@@ -137,7 +157,7 @@ async function run() {
     process.exit(1);
   }
 
-  // ── 7. Compute scores and verdict ───────────────────────────────────────────
+  // ── 8. Compute scores and verdict ───────────────────────────────────────────
   const pillars = review.pillars || {};
   const dq = pillars.decision_quality || {};
   const bi = pillars.build_integrity || {};
@@ -150,11 +170,11 @@ async function run() {
   const adjustedHireSignal = getHireSignal(adjustedTotal, hasHardFails);
   const verdict = computeVerdict({ adjustedTotal, pillars, hasHardFails });
 
-  // ── 8. Partition inline comments ────────────────────────────────────────────
+  // ── 9. Partition inline comments ────────────────────────────────────────────
   const { valid: validInlineComments, fallback: fallbackComments } =
     partitionInlineComments(review.inline_comments || [], positionMap);
 
-  // ── 9. Build and post review ────────────────────────────────────────────────
+  // ── 10. Build and post review ───────────────────────────────────────────────
   const hadPriorApproval = priorReviews.some((r) => r.state === 'APPROVED');
   const isFinalUnapproved =
     attemptNumber === 3 && verdict === 'REQUEST_CHANGES';
@@ -213,7 +233,7 @@ async function run() {
     `Review posted. ${inlinePosted} inline comment(s), ${fallbackComments.length} fallback comment(s).`,
   );
 
-  // ── 10. Manage labels ────────────────────────────────────────────────────────
+  // ── 11. Manage labels ────────────────────────────────────────────────────────
   await removeLabel(
     PR_OWNER,
     PR_REPO,
@@ -252,7 +272,7 @@ async function run() {
     );
   }
 
-  // ── 11. Log to Notion ────────────────────────────────────────────────────────
+  // ── 12. Log to Notion ────────────────────────────────────────────────────────
   if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
     console.warn(
       'NOTION_API_KEY or NOTION_DATABASE_ID not set — skipping Notion logging.',
@@ -276,16 +296,24 @@ async function run() {
     scoreModifier: modifier,
     rawTotal,
     adjustedTotal,
+    // Deadline tracking — all times in WAT
+    submittedAtWAT,
+    deadlineWAT,
+    onTime,
+    // Pillar scores (0–100)
     decisionQuality: dq.score ?? 0,
     buildIntegrity: bi.score ?? 0,
     ownership: ow.score ?? 0,
+    // Decision Quality sub-dimensions (0–10)
     constraintFidelity: dq.constraint_fidelity ?? 0,
     scopeJudgment: dq.scope_judgment ?? 0,
     openQuestionResponse: dq.open_question_response ?? 0,
+    // Build Integrity sub-dimensions (0–10)
     seamConsistency: bi.seam_consistency ?? 0,
     domainVocabulary: bi.domain_vocabulary ?? 0,
     proportionalComplexity: bi.proportional_complexity ?? 0,
     edgeCaseAwareness: bi.edge_case_awareness ?? 0,
+    // Ownership sub-dimensions (0–10)
     gitNarrative: ow.git_narrative ?? 0,
     readmeOwnership: ow.readme_ownership ?? 0,
     absenceAcknowledgment: ow.absence_acknowledgment ?? 0,

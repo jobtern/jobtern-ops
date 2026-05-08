@@ -15,7 +15,7 @@ Jobtern's assessment philosophy:
 - Tasks must feel like real work — a problem worth solving, not a test worth passing.
 - Tasks must be completable in under 48 hours by a junior engineer (≤ 2 years experience).
 - Tasks must be framework-agnostic — the candidate chooses their stack and justifies it.
-- Tasks must surface four signals: technical discipline, reliability, communication, and team readiness.
+- Tasks must surface three signals: decision quality, build integrity, and ownership.
 - The process behind the output matters as much as the output itself — commit history, README decisions, and scope calls are evaluated alongside the code.
 - All candidate work goes inside a `solution/` directory in the assessment repo.
 
@@ -56,6 +56,12 @@ A strong task:
 **Backend** — The candidate designs and builds an API for a described business problem. Describe the domain and the operations the system needs to support. Do not specify endpoints, response shapes, or database schema. The candidate designs all of these and is scored on the quality of those decisions.
 
 **Fullstack** — Both halves. The candidate owns the entire vertical — API design, data modelling, and UI. The task should have a natural integration point that reveals how they think across the stack.
+
+**Mobile** — The candidate designs and builds a native or cross-platform mobile experience. Describe the user context and the data. The candidate chooses the platform, designs the data layer, and documents their approach.
+
+**QA** — The candidate designs a test strategy and implements it against a described system. Do not specify which tests to write — describe the system behaviour and let the candidate decide what to cover and how. Scored on coverage decisions, not just test count.
+
+**Data Engineer** — The candidate designs and builds a pipeline or transformation layer. Describe the source data and the downstream need. The candidate designs the schema, transformation logic, and documents their decisions.
 
 ---
 
@@ -139,7 +145,7 @@ Note: [name of optional extension] is on the roadmap but out of scope for this s
 
 ## Deadline
 
-48 hours from when you receive this task.
+{{ deadline }}
 
 ## What we're looking for
 
@@ -156,6 +162,7 @@ We are not looking for how much you built. We are looking for how deliberately y
 5. Identify one optional extension — something that naturally follows from the core work but is explicitly out of scope.
 6. Verify: can this task be completed correctly by reading it once and prompting an AI without additional thought? If yes, it is too specific. Remove more.
 7. Generate the task in the output format above. Raw markdown only.
+8. Leave the Deadline section exactly as `{{ deadline }}` — it will be injected automatically by the assessment script.
 
 ---
 

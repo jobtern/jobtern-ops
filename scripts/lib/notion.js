@@ -14,7 +14,7 @@ async function logToNotion({ apiKey, databaseId, data }) {
   const properties = {
     Candidate: { title: [{ text: { content: data.candidate } }] },
     Client: { rich_text: [{ text: { content: data.client } }] },
-    Role: { rich_text: [{ text: { content: data.role } }] },
+    Role: { select: { name: data.role } },
     Attempt: { number: data.attempt },
     'PR URL': { url: data.prUrl },
     Verdict: { select: { name: data.verdict } },

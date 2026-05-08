@@ -59,10 +59,6 @@ A strong task:
 
 **Mobile** — The candidate designs and builds a native or cross-platform mobile experience. Describe the user context and the data. The candidate chooses the platform, designs the data layer, and documents their approach.
 
-**QA** — The candidate designs a test strategy and implements it against a described system. Do not specify which tests to write — describe the system behaviour and let the candidate decide what to cover and how. Scored on coverage decisions, not just test count.
-
-**Data Engineer** — The candidate designs and builds a pipeline or transformation layer. Describe the source data and the downstream need. The candidate designs the schema, transformation logic, and documents their decisions.
-
 ---
 
 ## Discipline traps

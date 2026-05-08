@@ -10,7 +10,7 @@
 # Example:
 #   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack America/New_York
 #
-# Roles:     fullstack | frontend | backend | mobile | qa | data-engineer
+# Roles:     fullstack | frontend | backend | mobile
 # Timezone:  Any valid IANA timezone identifier. Defaults to America/New_York.
 #
 # Requirements:
@@ -25,7 +25,7 @@ TEMPLATE_REPO="jobtern/jobtern-assessment-template"
 TARGET_ORG="jobtern"
 DEFAULT_BRANCH="main"
 DEFAULT_TZ="America/New_York"
-VALID_ROLES=("fullstack" "frontend" "backend" "mobile" "qa" "data-engineer")
+VALID_ROLES=("fullstack" "frontend" "backend" "mobile")
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ dim()   { echo -e "  ${DIM}$1${RESET}"; }
 if [[ $# -lt 2 ]]; then
   echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role> [timezone]"
   echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack America/New_York${RESET}"
-  echo -e "  ${DIM}Roles: fullstack | frontend | backend | mobile | qa | data-engineer${RESET}"
+  echo -e "  ${DIM}Roles: fullstack | frontend | backend | mobile${RESET}"
   echo -e "  ${DIM}Timezone: any IANA identifier — defaults to America/New_York${RESET}"
   exit 1
 fi
@@ -172,25 +172,13 @@ git clone --quiet "https://github.com/$TEMPLATE_REPO.git" "$TEMP_DIR"
 rm -rf "$TEMP_DIR/.git"
 ok "Template cloned to temp directory"
 
-# ── Inject deadline into TASK.md ──────────────────────────────────────────────
-step "Injecting deadline"
-
-if grep -q '{{ deadline }}' "$TEMP_DIR/TASK.md" 2>/dev/null; then
-  # macOS and Linux compatible sed
-  sed -i.bak "s|{{ deadline }}|$HUMAN_DEADLINE|g" "$TEMP_DIR/TASK.md"
-  rm -f "$TEMP_DIR/TASK.md.bak"
-  ok "Deadline injected: $HUMAN_DEADLINE"
-else
-  warn "No {{ deadline }} placeholder found in TASK.md — skipping injection"
-fi
-
 # ── Open in VS Code for editing ───────────────────────────────────────────────
 step "Edit README.md and TASK.md"
 
 echo ""
 echo -e "  ${BOLD}VS Code will open. Fill in:${RESET}"
 echo -e "  ${DIM}• README.md — replace {{ company_name }} with the client name${RESET}"
-echo -e "  ${DIM}• TASK.md   — paste the task brief (deadline already injected)${RESET}"
+echo -e "  ${DIM}• TASK.md   — paste the task brief (leave {{ deadline }} as-is)${RESET}"
 echo -e "  ${DIM}Close the VS Code window when done to continue.${RESET}"
 echo ""
 
@@ -206,6 +194,17 @@ fi
 TASK_CONTENT=$(cat "$TEMP_DIR/TASK.md" 2>/dev/null || echo "")
 if echo "$TASK_CONTENT" | grep -q 'Update this file'; then
   fail "TASK.md appears to still be the placeholder — fill it in before continuing."
+fi
+
+# ── Inject deadline into TASK.md ──────────────────────────────────────────────
+step "Injecting deadline"
+
+if grep -q '{{ deadline }}' "$TEMP_DIR/TASK.md" 2>/dev/null; then
+  sed -i.bak "s|{{ deadline }}|$HUMAN_DEADLINE|g" "$TEMP_DIR/TASK.md"
+  rm -f "$TEMP_DIR/TASK.md.bak"
+  ok "Deadline injected: $HUMAN_DEADLINE"
+else
+  warn "No {{ deadline }} placeholder found in TASK.md — skipping injection"
 fi
 
 # ── Create GitHub repo and push ───────────────────────────────────────────────

@@ -1,3 +1,4 @@
+// lib/format.js
 // Builds all candidate-facing text: PR comments, structured feedback, prompts.
 
 const { ordinal } = require('./scoring');
@@ -12,62 +13,37 @@ function buildAttemptLine(attemptNumber) {
 }
 
 function buildStructuredFeedback(review) {
-  const dq = review.pillars?.decision_quality || {};
-  const bi = review.pillars?.build_integrity || {};
-  const ow = review.pillars?.ownership || {};
+  const fb = review.feedback || {};
   const hasHardFails = review.hard_fails?.length > 0;
 
-  const strengths = [];
-  if ((dq.score ?? 0) >= 65)
-    strengths.push(
-      'Decision quality — constraints were met and ambiguity was handled deliberately.',
-    );
-  if ((bi.score ?? 0) >= 65)
-    strengths.push(
-      'Build integrity — the implementation was consistent and appropriately scoped.',
-    );
-  if ((ow.score ?? 0) >= 65)
-    strengths.push(
-      'Ownership — git history, README, and documented decisions showed clear authorship.',
-    );
+  // Use Claude-provided feedback strings when available
+  const strengths = fb.strengths?.length
+    ? fb.strengths.map((s) => `- ${s}`).join('\n')
+    : '- The submission showed effort and engagement with the task.';
 
-  const gaps = [];
-  if (!hasHardFails) {
-    if ((dq.score ?? 0) < 60)
-      gaps.push(
-        'Decision quality — constraints were missed or ambiguity was left unresolved.',
-      );
-    if ((bi.score ?? 0) < 60)
-      gaps.push(
-        'Build integrity — inconsistent seams, mismatched naming, or over-engineered structure.',
-      );
-    if ((ow.score ?? 0) < 60)
-      gaps.push(
-        'Ownership — git history, README, or absence documentation was insufficient.',
-      );
-  }
+  const improvements = hasHardFails
+    ? review.hard_fails.map((f) => `- ${f}`).join('\n')
+    : fb.improvements?.length
+      ? fb.improvements.map((i) => `- ${i}`).join('\n')
+      : '- The submission fell just short of the overall threshold.';
+
+  const nextTime = fb.next_time?.length
+    ? fb.next_time.map((n) => `- ${n}`).join('\n')
+    : [
+        '- Write commits that tell the story of how you built it, not just what changed.',
+        '- Document decisions in the `README`, not just setup instructions.',
+        '- Read constraints carefully and verify your output satisfies every layer before submitting.',
+      ].join('\n');
 
   return [
-    '## Assessment feedback',
+    '**What worked**',
+    strengths,
     '',
-    review.summary,
+    '**What held it back**',
+    improvements,
     '',
-    '### What worked',
-    strengths.length > 0
-      ? strengths.map((s) => `- ${s}`).join('\n')
-      : '- The submission showed effort and engagement with the task.',
-    '',
-    '### What held it back',
-    hasHardFails
-      ? review.hard_fails.map((f) => `- ${f}`).join('\n')
-      : gaps.length > 0
-        ? gaps.map((g) => `- ${g}`).join('\n')
-        : '- The submission fell just short of the overall threshold.',
-    '',
-    '### Areas to develop',
-    '- Write commits that tell the story of how you built it — not just what changed.',
-    '- Document decisions in the README, not just setup instructions.',
-    '- Read constraints carefully and verify your output satisfies every layer before submitting.',
+    '**Next time**',
+    nextTime,
   ].join('\n');
 }
 
@@ -80,29 +56,34 @@ function buildPrComment({
   isFinalUnapproved,
 }) {
   const hasHardFails = review.hard_fails?.length > 0;
+  const isApproved = verdict === 'APPROVE';
 
   const hardFailSection = hasHardFails
-    ? '\n\n### Hard fails\n' + review.hard_fails.map((f) => `- ${f}`).join('\n')
+    ? '\n**Hard fails**\n' +
+      review.hard_fails.map((f) => `- \`${f}\``).join('\n')
     : '';
 
   const fallbackSection = fallbackComments.length
-    ? '\n\n### Additional notes\n' +
+    ? '\n**Additional notes**\n' +
       fallbackComments.map((c) => `**\`${c.file}\`**\n${c.note}`).join('\n\n')
     : '';
 
+  // Final attempt, not approved
   if (isFinalUnapproved) {
     const priorApprovalNote = hadPriorApproval
       ? '\nYour final submission did not meet the approval threshold. We will use your previously approved submission for evaluation.\n'
       : '';
+
     return {
       body: [
-        '## Assessment complete',
+        "### Here's where this lands.",
         '',
         '_This is your 3rd and final submission. No further reviews will run on this PR._',
         priorApprovalNote,
+        review.summary,
+        '',
         buildStructuredFeedback(review),
         '',
-        '---',
         '*Reviewed by Jobtern.*',
       ]
         .filter(Boolean)
@@ -111,20 +92,37 @@ function buildPrComment({
     };
   }
 
+  // Approved
+  if (isApproved) {
+    return {
+      body: [
+        '### Good work.',
+        '',
+        buildAttemptLine(attemptNumber),
+        '',
+        review.summary,
+        fallbackSection,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      event: 'APPROVE',
+    };
+  }
+
+  // Changes requested (attempts 1 or 2)
   return {
     body: [
-      '## Assessment review',
+      '### You have feedback.',
       '',
       buildAttemptLine(attemptNumber),
       '',
       review.summary,
       hardFailSection,
       fallbackSection,
-      '',
-      '---',
-      `*Reviewed by Jobtern. Verdict: **${verdict}**.*`,
-    ].join('\n'),
-    event: verdict === 'APPROVE' ? 'APPROVE' : 'REQUEST_CHANGES',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    event: 'REQUEST_CHANGES',
   };
 }
 
@@ -147,11 +145,22 @@ function buildSystemPrompt(task, rubric) {
     'Only comment on lines that appear in the diff — lines with a [pos:N] prefix.',
     'If you cannot find a relevant diff line for an observation, omit the inline comment.',
     '',
+    'Inline comment notes should use markdown where appropriate:',
+    '- Wrap filenames and paths in backticks: `src/index.ts`',
+    '- Wrap variable names, function names, and code references in backticks: `amount`, `calculateTotal()`',
+    '- Use **bold** for emphasis on critical issues',
+    '',
     'Return ONLY valid JSON — no prose, no markdown fences, no explanation outside the JSON object.',
+    '',
+    'The "summary" field must follow these rules:',
+    '- Write in short paragraphs separated by blank lines, not as a single block of text',
+    '- Lead with an overall read of the submission, then observations, then concerns',
+    '- Never reference the candidate\'s seniority or experience level — no "junior", "for a junior", "given their level", or similar qualifiers',
+    '- Use backticks for all code references, filenames, and variable names',
     '',
     'The JSON must follow this exact shape:',
     '{',
-    '  "summary": "string",',
+    '  "summary": "string — short paragraphs separated by \\n\\n, backticks for code references",',
     '  "total": number (0–100, percentage),',
     '  "pillars": {',
     '    "decision_quality": {',
@@ -174,8 +183,13 @@ function buildSystemPrompt(task, rubric) {
     '      "absence_acknowledgment": number (0–10)',
     '    }',
     '  },',
-    '  "hard_fails": ["string"],',
-    '  "inline_comments": [{ "file": "string", "position": number, "note": "string" }]',
+    '  "feedback": {',
+    '    "strengths": ["string — specific observed behaviour, backticks for code references, 1–3 items"],',
+    '    "improvements": ["string — specific observed behaviour, backticks for code references, 1–3 items"],',
+    '    "next_time": ["string — forward-looking, actionable, no rubric language, 1–3 items"]',
+    '  },',
+    '  "hard_fails": ["string — plain text, no markdown"],',
+    '  "inline_comments": [{ "file": "string", "position": number, "note": "string — use markdown for code references" }]',
     '}',
     '',
     '## Task',

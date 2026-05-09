@@ -1,9 +1,8 @@
-# Task Generation Prompt
+# Task Generation Prompt — v2
 
 Use this prompt to generate a Jobtern assessment task from a client's job description.
 Paste the prompt below into Claude, followed by the job description and optionally context about the company's domain.
 
----
 
 ## Prompt
 
@@ -13,159 +12,168 @@ Jobtern's assessment philosophy:
 
 - Tasks screen for judgment, not execution. A candidate who reads the task and immediately knows what to build has already demonstrated more than one who needs every decision made for them.
 - Tasks must feel like real work — a problem worth solving, not a test worth passing.
-- Tasks must be completable in under 48 hours by a junior engineer (≤ 2 years experience).
+- Tasks must be completable in under 48 hours by a junior engineer (≤ 2 years experience) working without AI assistance.
 - Tasks must be framework-agnostic — the candidate chooses their stack and justifies it.
 - Tasks must surface three signals: decision quality, build integrity, and ownership.
 - The process behind the output matters as much as the output itself — commit history, README decisions, and scope calls are evaluated alongside the code.
 - All candidate work goes inside a `solution/` directory in the assessment repo.
+- Candidates work in a restricted environment without access to AI coding assistants. The task must be self-explanatory to a junior engineer reading it cold.
 
----
 
-## What a strong task looks like
+## Tone and register
 
-A strong task:
+Direct, scannable, respectful of the candidate's time. Write like a senior engineer handing off a real ticket — not like someone designing a test. Short sections, bullet lists over paragraphs, one sentence per constraint, no overexplaining.
 
-- Describes the **business problem and user context** — not the technical solution. The candidate figures out the solution.
-- Describes the **data available** in domain terms, not as a schema or API contract. Fields are named, their meaning explained, their constraints stated. The candidate designs the contract.
-- Embeds **discipline traps** as natural constraints that feel like real engineering requirements — not as a checklist of things to implement. A discipline trap is a constraint that a careful engineer handles correctly and a careless one gets wrong without realising.
-- Contains **one deliberate ambiguity** — something the task mentions but does not resolve. The candidate must make a call and document it. The call itself matters less than the fact that they made one and owned it.
-- Contains **one optional extension** — mentioned explicitly as out of scope for this sprint but on the roadmap. A candidate who builds it before completing the core experience is showing poor judgment. A candidate who scopes it out explicitly in their README is showing the right instincts.
-- Leaves enough **undefined** that two thoughtful engineers would produce meaningfully different solutions. If the task can be completed by reading it once and prompting an AI — it is too specific.
-- Does not specify component names, endpoint shapes, UI layout, or implementation approach.
-- Does not suggest tools or libraries.
-
----
-
-## What to avoid
-
-- Specifying the API contract — endpoint names, query params, response shapes, JSON examples. Describe the data, not the interface.
-- Listing UI components to build — summary bar, filter controls, pagination. Describe what the user needs to accomplish, not how to accomplish it.
-- Suggesting implementation tools — json-server, msw, React, Express. The candidate chooses.
-- Tasks that can be completed correctly by reading the brief once and prompting an AI without additional thought.
-- Tasks so open-ended that there is no consistent baseline for evaluation.
-- Generic CRUD tasks with no domain context.
-- Tasks that require expensive third-party APIs or cloud accounts.
-- Generic tone-setting lines that could apply to any task — phrases like "this is a hands-on role where your work ships and is seen" belong to templates, not real briefs. Context must be specific to this domain and this team.
-
----
 
 ## Role tracks
 
-**Frontend** — The candidate builds a UI that consumes data from a source they define and mock themselves. Describe what the user needs to see and do. Do not describe what components to build or what the API looks like. The candidate designs the data contract, documents it in their README, and is scored on whether that contract makes sense for the problem.
+**Frontend** — The candidate fetches from a real public API and builds a rich UI around it. No backend. Pick a stable, no-auth, CORS-enabled public API that fits the client's domain and include the endpoint in the task. The candidate reads the response shape directly from the API — do not describe it in the task. The UI is the primary deliverable and should be rich, responsive, accessible, and fully state-handled.
 
-**Backend** — The candidate designs and builds an API for a described business problem. Describe the domain and the operations the system needs to support. Do not specify endpoints, response shapes, or database schema. The candidate designs all of these and is scored on the quality of those decisions.
+**Backend** — The candidate builds an API from scratch. They design the schema, data model, business logic, and contract. Include a minimal frontend just enough to demonstrate the API works — not a polished UI. The API is the primary deliverable.
 
-**Fullstack** — Both halves. The candidate owns the entire vertical — API design, data modelling, and UI. The task should have a natural integration point that reveals how they think across the stack.
+**Fullstack (frontend-heavy)** — The candidate builds a real API that consumes a public API, transforms or extends the data, and exposes it to their own UI. The backend is lean — a transformation layer, not a full data platform. The UI is rich. Pick a public API as the upstream data source. The candidate's API is the bridge between the public API and the UI.
+
+**Fullstack (backend-heavy)** — The candidate builds an API from scratch (same weight as backend) and a basic UI that consumes it. Both halves are present. The backend is the focus — schema design, business logic, API contract. The UI is functional, not polished.
 
 **Mobile** — The candidate designs and builds a native or cross-platform mobile experience. Describe the user context and the data. The candidate chooses the platform, designs the data layer, and documents their approach.
 
----
+**Detecting fullstack weight from the JD:** If the JD is not explicit, read the emphasis. More bullet points on backend (data modelling, API design, system architecture) → backend-heavy. More bullet points on frontend (UI, UX, component libraries, design implementation) → frontend-heavy. When balanced, default to backend-heavy.
+
+
+## Difficulty calibration
+
+Difficulty is proportional to what the JD requires — not the role track. A demanding frontend JD produces a harder frontend task than a relaxed fullstack JD. The role track determines the shape of the work, not the volume.
+
+All four tracks are designed to be equivalent in effort for a focused junior over 48 hours:
+
+- Frontend: no backend work, but rich UI with full state handling and accessibility
+- Backend: no UI work beyond demonstration, but full API design from scratch
+- Fullstack frontend-heavy: lean backend + rich UI
+- Fullstack backend-heavy: full backend + basic UI
+
 
 ## Discipline traps
 
-Every task must embed two or three discipline traps. These are constraints that:
+Every task must embed two or three discipline traps. Each one:
 
-- Feel like real engineering requirements, not test conditions
-- Are stated explicitly in the Constraints section
-- Have a clearly wrong implementation that a careless engineer would produce
-- Are verifiable from the code diff alone
+- Feels like a real engineering requirement, not a test condition
+- States the rule in one sentence
+- States what breaks if violated in one sentence
+- Is verifiable from the code diff alone
 
 Examples by domain:
 
-- **Fintech** — monetary amounts stored as integer smallest-unit (kobo, cents) never as floats; pagination enforced server-side never client-side; aggregation computed server-side never by summing a fetched list
-- **SaaS** — environment config externalised never hardcoded; auth token validated including expiry; duplicate detection enforced at database level not application level only
-- **Enterprise** — input validated server-side with descriptive error responses; sensitive operations atomic to prevent race conditions; schema constraints enforced at database level
+- **Fintech** — amounts as integer cents/kobo never floats (float arithmetic compounds rounding errors); pagination server-side never client-side (client-side slice breaks at scale); aggregation at the data layer never in memory (client-side sum breaks when pagination is in play)
+- **Frontend** — monetary values as integers for arithmetic, display conversion in one place only; all interactive elements keyboard-accessible; loading, error, and empty states handled explicitly; images with meaningful alt text
+- **SaaS** — config externalised never hardcoded; auth token validated including expiry; duplicate detection at database level not application level only
+- **Backend** — input validated server-side with descriptive errors; schema constraints enforced at database level; sensitive operations atomic
 
----
 
-## Deliberate ambiguity
+## The trade-off
 
-Every task must contain one thing that the brief mentions but does not resolve. It should be something a real engineer would encounter and need to make a call on. Examples:
+Every task must contain exactly one genuine product decision. State the tension in two to three sentences — no labelled options (no "Option A / Option B"), no resolution. Tell the candidate to pick one, implement it consistently across every relevant surface, and explain their reasoning in the README.
 
-- Whether a feature should reflect real-time data or periodic snapshots
-- Whether a filter should be additive or exclusive
-- Whether an empty result set should show an empty state or hide the component entirely
-- Whether a monetary total should reflect the current filtered view or always the full dataset
+The trade-off must be a real product or architecture decision with genuine tradeoffs — not a preference or a style choice. It should have consequences that are visible in the implementation.
 
-State the ambiguity explicitly in the task. Tell the candidate a decision is needed. Do not tell them which decision to make.
+Examples:
 
----
+- Whether a monetary total includes in-flight payments or only settled ones
+- Whether an empty filter result shows an empty state or falls back to unfiltered content
+- Whether a status change triggers a downstream effect automatically or requires a separate explicit action
+- Whether to show items with missing data or exclude them from the listing
 
-## Optional extension
 
-Every task must mention one feature that is explicitly out of scope for this sprint. It should be something that naturally follows from the core work — something a candidate might reach for if they finish early. The task should name it and explicitly say it is not required.
+## What we're not looking for
 
-This tests scope judgment. A candidate who builds it before completing the core experience is showing poor priorities. A candidate who scopes it out in their README is showing the right instincts.
+Every task must include exactly one scope boundary. Role-specific, one line, nothing condescending.
 
----
+- Frontend: "A backend or data layer — the [API name] is your data source"
+- Backend: "A polished frontend — document your API, that's the deliverable"
+- Fullstack frontend-heavy: "A full data platform — [API name] is your upstream source, your backend transforms it"
+- Fullstack backend-heavy: "A polished frontend — get it working, that's enough"
+- Mobile: "A web version — build for mobile, that's the brief"
+
 
 ## Output format
 
-Generate exactly one task. Return it as raw markdown only — no preamble, no explanation, no code fences wrapping the entire output. Deliver the output as a `TASK.md` file — not as inline text.
+Generate exactly one task. Raw markdown only — no preamble, no explanation, no wrapping code fences. Deliver as a `TASK.md` file, not inline text.
 
-The task must follow this structure:
+Structure:
+
 
 # Task — [Short descriptive title]
 
-## Context
+## Background
 
-[Two to three sentences. The business situation. Who uses this. What problem it solves. Written as a real handoff from a real team — not as a test brief.]
+[Two to three sentences. Real handoff tone. Not a test brief.]
+
+
+## What to build
+
+[Tight bullet list. Specific but not prescriptive.]
+
 
 ## The data
 
-[Describe the data available to the candidate in domain terms. Name the fields, explain what they mean, state any constraints on their values. Do not specify the API contract — describe what the data represents, not how it is exposed. This is what the candidate has to work with. They decide how to expose it.]
+[Frontend/fullstack-frontend: API endpoint URL + key query params only. Do not describe the response shape.
+Backend/fullstack-backend/mobile: every field that affects implementation — name, type, constraints, null conditions.]
 
-## What the user needs
 
-[Describe what the end user needs to be able to do — in user terms, not technical terms. No component names, no endpoint names, no implementation approach. Two to four user needs, stated as outcomes. The candidate decides how to meet them.]
+## The trade-off
 
-## The open question
+[Two to three sentences. The tension. No labelled options. Tell the candidate to pick one, implement consistently, explain in README.]
 
-[State the deliberate ambiguity. Name it explicitly. Tell the candidate a decision is required. Do not resolve it.]
 
 ## Deliverables
 
-- All your work goes inside the `solution/` directory in this repo
-- A `README.md` inside `solution/` covering:
-  - How to run it locally (exact commands)
-  - The data contract you designed — document every endpoint, what it accepts, and what it returns
-  - The decision you made on the open question, and why
-  - Assumptions you made
-  - One thing you'd do differently with more time
+All work goes inside `solution/`. Include a `README.md` covering:
+
+- How to run it locally
+- [Role-specific line]
+- Your decision on the trade-off and why
+- One thing you'd do differently with more time
+
+[Backend/fullstack-backend: add "Include seed data so a reviewer can load the app immediately."]
+
 
 ## Constraints
 
-[Two to three discipline traps stated as engineering requirements. Each one should feel like a real constraint, not a test condition. Be explicit — a candidate who violates these is immediately flagged.]
+[Two to three bullets. Rule + what breaks. Nothing more.]
 
-Note: [name of optional extension] is on the roadmap but out of scope for this sprint. Complete the core experience first. If you have capacity after that, explore it — but a polished core beats a half-built extension.
+
+## What we're not looking for
+
+- [One scope boundary.]
+
 
 ## Deadline
 
 {{ deadline }}
 
-## What we're looking for
+[One closing line. Optional.]
 
-We are not looking for how much you built. We are looking for how deliberately you built it — the decisions you made, the ones you didn't make and why, and whether the engineer behind the code is visible in the commit history and README.
-
----
 
 ## Instructions
 
-1. Read the job description carefully — identify the domain, the business context, and the type of data the company works with.
-2. Design the business problem the candidate will solve — specific enough to feel real, open enough that the solution is not predetermined.
-3. Identify two or three discipline traps relevant to the domain. State them as natural constraints.
-4. Identify one deliberate ambiguity — something a real engineer on this team would need to decide.
-5. Identify one optional extension — something that naturally follows from the core work but is explicitly out of scope.
-6. Verify: can this task be completed correctly by reading it once and prompting an AI without additional thought? If yes, it is too specific. Remove more.
-7. Generate the task in the output format above. Raw markdown only.
-8. Leave the Deadline section exactly as `{{ deadline }}` — it will be injected automatically by the assessment script.
+1. Read the JD — identify domain, business context, and emphasis (frontend-heavy or backend-heavy for fullstack).
+2. Determine the role track. For fullstack, detect the weight from the JD emphasis.
+3. Design a realistic problem — specific enough to feel real, open enough that two engineers produce different solutions.
+4. For frontend and fullstack-frontend: pick a stable, no-auth, CORS-enabled public API. Include the endpoint. Do not describe the response shape.
+5. For backend and fullstack-backend: describe every data field that affects implementation — name, type, constraints, null conditions.
+6. Identify two to three discipline traps. One sentence per rule, one on what breaks.
+7. Identify one genuine trade-off with real implementation consequences. State the tension without resolving it.
+8. Identify one scope boundary — role-specific, one line.
+9. Verify: would a junior engineer reading this cold, without AI, know exactly what to build? If not, add specificity.
+10. Verify: does the task leave solution architecture — schema, API contract, component structure, tech stack — to the candidate? If not, remove specification.
+11. Verify: is every line earning its place? If it can be cut without losing meaning, cut it.
+12. Generate the task. Raw markdown only.
+13. Leave the Deadline section exactly as `{{ deadline }}` — injected automatically by the assessment script.
 
----
 
 ## Input
 
 **Job description:**
 [paste job description here]
 
-**Domain context** (optional — any additional context about the company's product, users, or technical environment):
+**Domain context** (optional):
 [paste here or leave blank]

@@ -1,59 +1,30 @@
-# Role Patch — Mobile Engineer
+# Role patch — Mobile
 
-This patch extends the base rubric for mobile submissions. Read the base rubric first.
+The candidate designed and built a native or cross-platform mobile experience. They chose the platform and documented their approach. Score the mobile experience — platform conventions, data layer decisions, and state handling.
 
-Applies to: React Native, Flutter, Swift (iOS), Kotlin/Java (Android), and any other mobile stack.
 
----
+## Decision Quality — role-specific guidance
 
-## Domain vocabulary examples
+**Constraint fidelity:** Verify platform conventions are respected — navigation patterns, touch target sizes, back behaviour, and lifecycle handling appropriate to the chosen platform. Verify monetary values are treated as integers if present.
 
-Generic (lower score) → domain-aligned (higher score):
-- `DataScreen` → `TransactionHistoryScreen`, `PaymentActivityView`
-- `ItemCell` → `TransactionCell`, `PaymentRow`
-- `handleTap` → `selectTransaction`, `openPaymentDetail`
-- `status` as unconstrained string → typed with the domain's actual status values
-- `getData` → `loadTransactionHistory`, `fetchPaymentActivity`
+**Scope judgment:** The candidate chose a platform and justified it in the README. Penalise candidates who chose a platform without documenting the reasoning, or who built complexity beyond what the task requires. A working, platform-appropriate experience is the goal.
 
----
+**Trade-off response:** The candidate made one explicit decision. Score whether it is implemented consistently throughout the mobile experience.
 
-## Edge case awareness — mobile-specific
 
-Check these in addition to the universal edge cases:
+## Build Integrity — role-specific guidance
 
-- What happens when the device loses network connectivity mid-session? Is there a visible offline state or does the app silently fail?
-- What happens when the list is empty after filtering? Is there a visible empty state?
-- What happens when a numeric value is zero — is it rendered correctly or treated as falsy and hidden?
-- What happens when a text field contains an unusually long string — does it overflow or truncate gracefully?
-- Does the submission handle loading state on the initial fetch and on subsequent fetches (e.g. pagination, pull-to-refresh)?
-- Does mock or seed data include edge case values?
+**Seam consistency:** Data fetching, state management, and UI rendering should be appropriately separated. Business logic should not live in view components or screen files.
 
----
+**Proportional complexity:** No unnecessary navigation stacks, local databases, or authentication layers unless the task required them. Penalise over-engineering. Reward a lean, well-structured mobile experience.
 
-## Git narrative — expected organic sequence
+**Edge case awareness:** Loading states, error states, empty states, and network failure states must all be handled. Touch targets must be large enough to be usable. The experience must be functional without a physical keyboard.
 
-For a mobile submission: data layer and service/repository setup first, then core screen, then state management, then edge states (loading, error, empty), then navigation and polish. Deviation without explanation is a signal.
 
----
+## Ownership — role-specific guidance
 
-## Hard fails — mobile additions
+**README ownership:** Must document the platform choice and the reasoning behind it, exact run commands (including any simulator or device requirements), and the trade-off decision with reasoning specific to this submission.
 
-These are added to the universal hard fails. Any one triggers REQUEST_CHANGES immediately.
+**Git narrative:** Should show incremental feature work — navigation structure before content, content before edge cases. A single commit is a red flag.
 
-- Loading and error states completely absent — app assumes the happy path always succeeds
-- Hardcoded API base URL or credentials in source code
-- Client-side pagination — fetching all records and slicing locally
-- Monetary amounts stored or computed as floats (if the task involves monetary values)
-- Network request made on the main/UI thread without async handling (where applicable to the stack)
-
----
-
-## Scored deductions — mobile additions
-
-Flag as inline comments, not hard fails:
-
-- Missing empty state — deduct under 2.4 Edge Case Awareness
-- No offline or connectivity error handling — deduct under 2.4 Edge Case Awareness
-- API base URL or environment config hardcoded — deduct under 1.2 Scope Judgment
-- Inconsistent error handling across different network calls — deduct under 2.1 Seam Consistency
-- UI state not reset when navigating back and forth — deduct under 2.4 Edge Case Awareness
+**Absence acknowledgment:** If the candidate scoped out any planned screens or features, they should document the decision.

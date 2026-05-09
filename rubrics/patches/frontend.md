@@ -1,56 +1,32 @@
-# Role Patch — Frontend Engineer
+# Role patch — Frontend
 
-This patch extends the base rubric for frontend submissions. Read the base rubric first.
+The candidate consumed a real public API and built a rich UI around it. They did not build a backend. Score accordingly — the UI is the entire deliverable.
 
----
 
-## Domain vocabulary examples
+## Decision Quality — role-specific guidance
 
-Generic (lower score) → domain-aligned (higher score):
-- `DataList` → `TransactionFeed`, `PaymentActivity`, `OrderHistory`
-- `ItemCard` → `TransactionRow`, `PaymentEntry`, `OrderSummary`
-- `handleData` → `loadTransactions`, `fetchPaymentActivity`
-- `status` as unconstrained string → typed with the domain's actual status values
-- `updateStatus` → `markTransactionComplete`, `flagPaymentFailed`
+**Constraint fidelity:** Check that monetary values (if present) are treated as integers for arithmetic and converted for display in one place only. Verify the candidate read the actual API response shape and built against what the API returns, not an assumed shape.
 
----
+**Scope judgment:** The candidate should not have built a backend. If a local server exists, check whether it was necessary. A public API was provided — any backend layer beyond what the framework requires is likely over-engineering.
 
-## Edge case awareness — frontend-specific
+**Trade-off response:** The candidate made one explicit product decision. Score whether the decision is implemented consistently across every relevant surface — not just the obvious one.
 
-Check these in addition to the universal edge cases:
 
-- What happens when a field that should be present is null or undefined? Does the UI crash, display raw null, or handle it gracefully?
-- What happens when a numeric field is zero? Is `0` treated as falsy and incorrectly hidden or replaced?
-- What happens when an error occurs on a subsequent request, not just the initial load? Is error state only wired to mount?
-- What happens when a filter combination returns an empty dataset? Is there a visible empty state?
-- What happens when a text field contains special characters or an unusually long string?
-- Does mock or seed data include edge case values — zero amounts, null descriptions, failed records?
+## Build Integrity — role-specific guidance
 
----
+**Seam consistency:** API data transformations (field renaming, flattening, filtering) should happen in one place, not scattered across components.
 
-## Git narrative — expected organic sequence
+**Domain vocabulary:** Component names, variable names, and function names should reflect the task domain — not generics like `Item`, `Card`, or `data`.
 
-For a frontend submission: data layer and mock setup first, then core display, then interactivity (filters, pagination), then states (loading, error, empty), then polish. Deviation without explanation is a signal.
+**Proportional complexity:** A frontend-only task should not have a custom server, a database, or unnecessary abstractions. Penalise over-engineering. Reward lean, readable code.
 
----
+**Edge case awareness:** Loading, error, and empty states must be handled on every data-fetching surface. All interactive elements must be keyboard-navigable with visible focus indicators. Images must have meaningful alt text — not "image" or an empty string.
 
-## Hard fails — frontend additions
 
-These are added to the universal hard fails. Any one triggers REQUEST_CHANGES immediately.
+## Ownership — role-specific guidance
 
-- Loading and error states completely absent — UI assumes the happy path always succeeds
-- Hardcoded data in the UI that should come from the data source
-- Client-side pagination — fetching all records and slicing in the browser
-- Client-side aggregation — computing summary totals by summing a fetched list instead of calling an aggregate source
+**README ownership:** Must document the data shape built against (what fields were used from the API response), the trade-off decision and reasoning, and exact run commands. A README that could describe any project is a signal failure.
 
----
+**Git narrative:** Should show incremental UI work — layout before interactivity, interactivity before edge cases. A single commit containing everything is a red flag.
 
-## Scored deductions — frontend additions
-
-Flag as inline comments, not hard fails:
-
-- Bounded client-side aggregation (e.g. fetching a large limit to sum values) — deduct under 1.1 Constraint Fidelity
-- Missing empty state — deduct under 2.4 Edge Case Awareness
-- Dynamic values rendered via innerHTML with unsanitised data — deduct under 2.3 Proportional Complexity
-- API base URL hardcoded instead of externalised — deduct under 1.2 Scope Judgment
-- Inconsistent error handling shapes across fetch calls — deduct under 2.1 Seam Consistency
+**Absence acknowledgment:** If the candidate excluded certain API fields or simplified the data model, they should say so and explain why.

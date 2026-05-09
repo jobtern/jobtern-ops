@@ -1,59 +1,32 @@
-# Role Patch — Backend Engineer
+# Role patch — Backend
 
-This patch extends the base rubric for backend submissions. Read the base rubric first.
+The candidate designed and built an API from scratch — schema, data model, business logic, and contract. They included a minimal frontend to demonstrate the API works. Score the API. The frontend is not evaluated beyond "does it demonstrate the API."
 
----
 
-## Domain vocabulary examples
+## Decision Quality — role-specific guidance
 
-Generic (lower score) → domain-aligned (higher score):
-- `createItem` → `recordTransaction`, `logPayment`, `registerOrder`
-- `getData` → `fetchTransactionHistory`, `getPaymentActivity`
-- `status` as unconstrained string → typed with the domain's actual status values
-- `processRequest` → `settlePayment`, `flagFailedTransaction`
-- Table named `items` → `transactions`, `payments`, `orders`
-- `handleError` → `rejectInvalidPayment`, `flagDuplicateSubmission`
+**Constraint fidelity:** Check that monetary values are stored as integers at the database level — not just handled correctly in application code. Verify server-side pagination is enforced at the query level. Verify financial aggregations are computed at the data layer, not in application memory or on the client.
 
----
+**Scope judgment:** The frontend should be minimal — enough to show the API works, no more. Significant UI investment at the expense of API depth is a scope failure. A polished frontend with a shallow API is penalised.
 
-## Edge case awareness — backend-specific
+**Trade-off response:** The candidate made one explicit architectural or data decision. Score whether the decision is implemented consistently throughout the API — not just at one endpoint.
 
-Check these in addition to the universal edge cases:
 
-- What happens when a required field is missing from the request body? Does the server crash or return a descriptive 400?
-- What happens when a numeric field receives a string, a float, or a negative value?
-- What happens when a filter parameter receives an invalid value?
-- What happens when pagination parameters are out of range — page=0, page=-1, limit=0, limit=99999?
-- What happens when the requested resource does not exist — is the 404 response shape consistent with other error shapes?
-- Does seed data include edge case values — zero amounts, null optional fields, boundary pagination values?
+## Build Integrity — role-specific guidance
 
----
+**Seam consistency:** Request validation, business logic, and data access should be appropriately separated. An endpoint that mixes SQL queries with response formatting in the same function is a seam failure.
 
-## Git narrative — expected organic sequence
+**Domain vocabulary:** Table names, column names, endpoint paths, and variable names should reflect the task domain consistently. Inconsistency between the schema and the API contract is penalised.
 
-For a backend submission: schema first, then routes, then validation, then error handling, then documentation. Deviation without explanation is a signal worth noting.
+**Proportional complexity:** No full frontend framework, CSS animations, or UI components beyond basic HTML. Penalise scope creep into the UI layer. Reward a lean, well-structured API.
 
----
+**Edge case awareness:** Invalid input must return descriptive error responses with appropriate status codes. Missing or null fields must be handled gracefully. Pagination edge cases (page beyond total, zero limit) must be handled.
 
-## Hard fails — backend additions
 
-These are added to the universal hard fails. Any one triggers REQUEST_CHANGES immediately.
+## Ownership — role-specific guidance
 
-- Monetary amounts stored as floats
-- SQL queries built by string concatenation (injection risk)
-- Server crashes on invalid input instead of returning a descriptive error response
-- Passwords stored in plain text or hashed with a non-purpose-built algorithm (MD5, SHA-256)
-- JWT validation that does not check token expiry (if auth is implemented)
-- Duplicate detection handled only in application code with no database-level unique constraint (if deduplication is required)
+**README ownership:** Must document every endpoint — path, method, accepted parameters, and response shape. Run commands must include database setup and seeding. The trade-off decision must be explained with reasoning specific to this submission.
 
----
+**Git narrative:** Should show schema-first progression — schema before routes, routes before business logic, business logic before edge cases. A single commit is a red flag.
 
-## Scored deductions — backend additions
-
-Flag as inline comments, not hard fails:
-
-- Missing schema-level constraints (NOT NULL, CHECK) where the application enforces them — deduct under 2.1 Seam Consistency
-- Page or limit parameters not clamped to valid range — deduct under 2.4 Edge Case Awareness
-- Port or database URL hardcoded instead of externalised via environment variable — deduct under 1.2 Scope Judgment
-- Inconsistent error response shapes across routes — deduct under 2.1 Seam Consistency
-- created_at or timestamp fields stored as TEXT when a proper date type is available — deduct under 2.1 Seam Consistency
+**Absence acknowledgment:** If the candidate simplified the schema or left an endpoint unimplemented, they should document it and explain the scope decision.

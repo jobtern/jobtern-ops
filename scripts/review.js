@@ -50,6 +50,7 @@ async function run() {
     PR_BODY,
     PR_AUTHOR,
     PR_CREATED_AT,
+    PR_TITLE,
     DEADLINE,
     CANDIDATE_TZ,
   } = process.env;
@@ -125,6 +126,7 @@ async function run() {
   // ── 6. Build prompts and call Claude ────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(task, rubric);
   const userPrompt = buildUserPrompt({
+    prTitle: PR_TITLE,
     prBody: PR_BODY,
     priorReviews,
     truncatedDiff: diff,

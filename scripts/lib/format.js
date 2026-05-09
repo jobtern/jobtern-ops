@@ -1,4 +1,3 @@
-// lib/format.js
 // Builds all candidate-facing text: PR comments, structured feedback, prompts.
 
 const { ordinal } = require('./scoring');
@@ -202,7 +201,7 @@ function buildSystemPrompt(task, rubric) {
   ].join('\n');
 }
 
-function buildUserPrompt({ prBody, priorReviews, truncatedDiff }) {
+function buildUserPrompt({ prTitle, prBody, priorReviews, truncatedDiff }) {
   const priorReviewSection =
     priorReviews.length > 0
       ? [
@@ -217,7 +216,9 @@ function buildUserPrompt({ prBody, priorReviews, truncatedDiff }) {
       : '';
 
   return [
-    '## Candidate PR description',
+    '## Candidate PR',
+    '',
+    `**Title:** ${prTitle || '(no title)'}`,
     '',
     prBody || '(no PR description provided)',
     '',

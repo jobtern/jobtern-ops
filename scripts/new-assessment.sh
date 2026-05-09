@@ -10,7 +10,7 @@
 # Example:
 #   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack America/New_York
 #
-# Roles:     fullstack | frontend | backend | mobile
+# Roles:     frontend | backend | fullstack-frontend | fullstack-backend | mobile
 # Timezone:  Any valid IANA timezone identifier. Defaults to America/New_York.
 #
 # Requirements:
@@ -25,7 +25,7 @@ TEMPLATE_REPO="jobtern/jobtern-assessment-template"
 TARGET_ORG="jobtern"
 DEFAULT_BRANCH="main"
 DEFAULT_TZ="America/New_York"
-VALID_ROLES=("fullstack" "frontend" "backend" "mobile")
+VALID_ROLES=("frontend" "backend" "fullstack-frontend" "fullstack-backend" "mobile")
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ dim()   { echo -e "  ${DIM}$1${RESET}"; }
 if [[ $# -lt 2 ]]; then
   echo -e "${BOLD}Usage:${RESET} $0 <repo-name> <role> [timezone]"
   echo -e "  ${DIM}Example: $0 ambidexters-fullstack-2026-05 fullstack America/New_York${RESET}"
-  echo -e "  ${DIM}Roles: fullstack | frontend | backend | mobile${RESET}"
+  echo -e "  ${DIM}Roles: frontend | backend | fullstack-frontend | fullstack-backend | mobile${RESET}"
   echo -e "  ${DIM}Timezone: any IANA identifier — defaults to America/New_York${RESET}"
   exit 1
 fi

@@ -8,7 +8,7 @@
 #   ./scripts/new-assessment.sh <repo-name> <role> [timezone]
 #
 # Example:
-#   ./scripts/new-assessment.sh google-fullstack-2026-05 fullstack America/New_York
+#   ./scripts/new-assessment.sh google-fullstack-2026-05 frontend America/New_York
 #
 # Roles:     frontend | backend | fullstack-frontend | fullstack-backend | mobile
 # Timezone:  Any valid IANA timezone identifier. Defaults to America/New_York.

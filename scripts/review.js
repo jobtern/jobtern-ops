@@ -71,10 +71,19 @@ async function run() {
   const modifier = getModifier(attemptNumber);
   console.log(`Attempt: ${ordinal(attemptNumber)} | Modifier: ${modifier}`);
 
-  // ── 2. Gate: submission already closed ─────────────────────────────────────
+  // ── 2. Gate: check ready-for-review label ───────────────────────────────────
   const labels = await fetchLabels(PR_OWNER, PR_REPO, PR_NUMBER, GITHUB_TOKEN);
+  const hasReadyForReview = labels.includes('ready-for-review');
   const hasSubmissionClosed = labels.includes('submission-closed');
 
+  if (!hasReadyForReview) {
+    console.log(
+      'Submission does not have ready-for-review label — skipping review.',
+    );
+    return;
+  }
+
+  // ── 3. Gate: submission already closed ─────────────────────────────────────
   if (hasSubmissionClosed || priorReviews.length >= 3) {
     if (!hasSubmissionClosed && priorReviews.length >= 3) {
       await addLabels(
@@ -89,7 +98,15 @@ async function run() {
     return;
   }
 
-  // ── 3. Deadline check ───────────────────────────────────────────────────────
+  // ── 4. Clean up conflicting labels when ready-for-review is present ────────
+  const labelsToRemove = labels.filter(
+    (label) => label !== 'ready-for-review' && label !== 'submission-closed',
+  );
+  for (const label of labelsToRemove) {
+    await removeLabel(PR_OWNER, PR_REPO, PR_NUMBER, label, GITHUB_TOKEN);
+  }
+
+  // ── 5. Deadline check ───────────────────────────────────────────────────────
   const onTime = isSubmissionOnTime(PR_CREATED_AT, DEADLINE, CANDIDATE_TZ);
   if (onTime === null) {
     console.warn('Deadline data missing — skipping on-time check.');
@@ -104,7 +121,7 @@ async function run() {
   const deadlineWAT =
     DEADLINE && CANDIDATE_TZ ? getDeadlineWAT(DEADLINE, CANDIDATE_TZ) : null;
 
-  // ── 4. Fetch rubric (base + role patch) and task ────────────────────────────
+  // ── 6. Fetch rubric (base + role patch) and task ────────────────────────────
   console.log('Fetching rubric...');
   const [baseRubric, rolePatch, task] = await Promise.all([
     fetchRepoFile('jobtern', 'jobtern-ops', 'rubrics/base.md', GITHUB_TOKEN),
@@ -118,12 +135,12 @@ async function run() {
   ]);
   const rubric = `${baseRubric}\n\n---\n\n${rolePatch}`;
 
-  // ── 5. Fetch and annotate diff ──────────────────────────────────────────────
+  // ── 7. Fetch and annotate diff ──────────────────────────────────────────────
   const rawDiff = await fetchDiff(PR_OWNER, PR_REPO, PR_NUMBER, GITHUB_TOKEN);
   const { annotatedDiff, positionMap } = annotateDiff(rawDiff);
   const diff = truncateDiff(annotatedDiff);
 
-  // ── 6. Build prompts and call Claude ────────────────────────────────────────
+  // ── 8. Build prompts and call Claude ────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(task, rubric);
   const userPrompt = buildUserPrompt({
     prTitle: PR_TITLE,
@@ -150,7 +167,7 @@ async function run() {
     process.exit(1);
   }
 
-  // ── 7. Parse Claude response ────────────────────────────────────────────────
+  // ── 9. Parse Claude response ────────────────────────────────────────────────
   let review;
   try {
     review = parseReview(extractText(claudeData));
@@ -159,7 +176,7 @@ async function run() {
     process.exit(1);
   }
 
-  // ── 8. Compute scores and verdict ───────────────────────────────────────────
+  // ── 10. Compute scores and verdict ───────────────────────────────────────────
   const pillars = review.pillars || {};
   const dq = pillars.decision_quality || {};
   const bi = pillars.build_integrity || {};
@@ -172,11 +189,11 @@ async function run() {
   const adjustedHireSignal = getHireSignal(adjustedTotal, hasHardFails);
   const verdict = computeVerdict({ adjustedTotal, pillars, hasHardFails });
 
-  // ── 9. Partition inline comments ────────────────────────────────────────────
+  // ── 11. Partition inline comments ────────────────────────────────────────────
   const { valid: validInlineComments, fallback: fallbackComments } =
     partitionInlineComments(review.inline_comments || [], positionMap);
 
-  // ── 10. Build and post review ───────────────────────────────────────────────
+  // ── 12. Build and post review ───────────────────────────────────────────────
   const hadPriorApproval = priorReviews.some((r) => r.state === 'APPROVED');
   const isFinalUnapproved =
     attemptNumber === 3 && verdict === 'REQUEST_CHANGES';
@@ -235,7 +252,8 @@ async function run() {
     `Review posted. ${inlinePosted} inline comment(s), ${fallbackComments.length} fallback comment(s).`,
   );
 
-  // ── 11. Manage labels ────────────────────────────────────────────────────────
+  // ── 13. Manage labels ────────────────────────────────────────────────────────
+  // Remove ready-for-review and any other non-terminal labels
   await removeLabel(
     PR_OWNER,
     PR_REPO,
@@ -274,7 +292,7 @@ async function run() {
     );
   }
 
-  // ── 12. Log to Notion ────────────────────────────────────────────────────────
+  // ── 14. Log to Notion ────────────────────────────────────────────────────────
   if (!NOTION_API_KEY || !NOTION_DATABASE_ID) {
     console.warn(
       'NOTION_API_KEY or NOTION_DATABASE_ID not set — skipping Notion logging.',

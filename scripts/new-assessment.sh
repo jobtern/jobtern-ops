@@ -248,14 +248,16 @@ ok "CANDIDATE_TZ set to: $CANDIDATE_TZ"
 # ── Create labels ─────────────────────────────────────────────────────────────
 step "Creating labels"
 
+# Remove all existing labels
+gh label list --repo "$FULL_REPO" --limit 1000 --json name -q '.[].name' | \
+  while read -r label; do
+    gh label delete "$label" --repo "$FULL_REPO" --yes 2>/dev/null || true
+  done
+
 gh label create "ready-for-review" \
   --repo "$FULL_REPO" \
   --color "0075ca" \
-  --description "Add this label when your submission is ready for review" 2>/dev/null || \
-gh label edit "ready-for-review" \
-  --repo "$FULL_REPO" \
-  --color "0075ca" \
-  --description "Add this label when your submission is ready for review" 2>/dev/null
+  --description "Add this label when your submission is ready for review" 2>/dev/null || true
 
 gh label create "changes-requested" \
   --repo "$FULL_REPO" \
@@ -284,7 +286,7 @@ gh api \
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["Review PR"]
+    "contexts": ["Review Pull Request"]
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {

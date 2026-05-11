@@ -86,6 +86,14 @@ async function run() {
 
   // ── 3. Gate: submission already closed ─────────────────────────────────────
   if (hasSubmissionClosed || priorReviews.length >= 3) {
+    // Always remove ready-for-review — candidate may have re-added it trying to trigger another review
+    await removeLabel(
+      PR_OWNER,
+      PR_REPO,
+      PR_NUMBER,
+      'ready-for-review',
+      GITHUB_TOKEN,
+    );
     if (!hasSubmissionClosed && priorReviews.length >= 3) {
       await addLabels(
         PR_OWNER,
@@ -256,7 +264,6 @@ async function run() {
   );
 
   // ── 13. Manage labels ────────────────────────────────────────────────────────
-  // Remove ready-for-review and any other non-terminal labels
   await removeLabel(
     PR_OWNER,
     PR_REPO,

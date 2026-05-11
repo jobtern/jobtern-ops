@@ -97,6 +97,14 @@ async function fetchRepoFile(owner, repo, filePath, token) {
   });
 }
 
+// Only reviews that start with a known Jobtern header are counted as attempts.
+// This prevents test runs, debug runs, and external reviews from inflating the count.
+const JOBTERN_REVIEW_HEADERS = [
+  '### You have feedback.',
+  '### Good work.',
+  "### Here's where this lands.",
+];
+
 async function fetchPriorReviews(owner, repo, pullNumber, token) {
   const { status, body } = await githubRequest(
     `/repos/${owner}/${repo}/pulls/${pullNumber}/reviews`,
@@ -104,9 +112,11 @@ async function fetchPriorReviews(owner, repo, pullNumber, token) {
   );
   if (status !== 200) return [];
   return body
-    .filter(
-      (r) => r.user?.login === 'github-actions[bot]' && r.state !== 'PENDING',
-    )
+    .filter((r) => {
+      if (r.user?.login !== 'github-actions[bot]') return false;
+      if (r.state === 'PENDING') return false;
+      return JOBTERN_REVIEW_HEADERS.some((h) => r.body?.startsWith(h));
+    })
     .sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at));
 }
 

@@ -149,7 +149,7 @@ function buildSystemPrompt(task, rubric) {
     '- Wrap variable names, function names, and code references in backticks: `amount`, `calculateTotal()`',
     '- Use **bold** for emphasis on critical issues',
     '',
-    'Return ONLY valid JSON — no prose, no markdown fences, no explanation outside the JSON object.',
+    'Return only a valid JSON object. No preamble, no explanation, no markdown fences. The first character of your response must be `{` and the last must be `}`.',
     '',
     'The "summary" field must follow these rules:',
     '- Write in short paragraphs separated by blank lines, not as a single block of text',

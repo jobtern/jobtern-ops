@@ -2,7 +2,6 @@
 
 The candidate designed and built an API from scratch and a basic UI that consumes it. Both halves are present. The backend is the primary deliverable — score it with the same rigour as a backend-only task. The UI is not evaluated beyond "does it consume the API correctly and function."
 
-
 ## Decision Quality — role-specific guidance
 
 **Constraint fidelity:** Apply all backend constraint checks — monetary integers at the database level, server-side pagination at the query level, aggregations at the data layer. These are hard requirements regardless of UI quality.
@@ -11,7 +10,6 @@ The candidate designed and built an API from scratch and a basic UI that consume
 
 **Trade-off response:** The candidate made one explicit decision. Score whether it is implemented consistently throughout both the API and the UI that consumes it.
 
-
 ## Build Integrity — role-specific guidance
 
 Apply all backend Build Integrity checks. Additionally:
@@ -19,7 +17,6 @@ Apply all backend Build Integrity checks. Additionally:
 **Seam consistency:** The UI must consume the candidate's own API — not bypass it with direct database access or hardcoded data. The integration between frontend and backend must be real.
 
 **Proportional complexity:** Backend should have full rigour — schema, validation, error handling, pagination. UI should be proportional to "basic" — enough to demonstrate the API, not a full product. Penalise a polished UI built at the expense of backend depth.
-
 
 ## Ownership — role-specific guidance
 

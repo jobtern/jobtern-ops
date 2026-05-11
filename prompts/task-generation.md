@@ -3,7 +3,6 @@
 Use this prompt to generate a Jobtern assessment task from a client's job description.
 Paste the prompt below into Claude, followed by the job description and optionally context about the company's domain.
 
-
 ## Prompt
 
 You are helping design a technical screening task for Jobtern, a junior engineer screening service.
@@ -19,11 +18,9 @@ Jobtern's assessment philosophy:
 - All candidate work goes inside a `solution/` directory in the assessment repo.
 - Candidates work in a restricted environment without access to AI coding assistants. The task must be self-explanatory to a junior engineer reading it cold.
 
-
 ## Tone and register
 
 Direct, scannable, respectful of the candidate's time. Write like a senior engineer handing off a real ticket — not like someone designing a test. Short sections, bullet lists over paragraphs, one sentence per constraint, no overexplaining.
-
 
 ## Role tracks
 
@@ -39,7 +36,6 @@ Direct, scannable, respectful of the candidate's time. Write like a senior engin
 
 **Detecting fullstack weight from the JD:** If the JD is not explicit, read the emphasis. More bullet points on backend (data modelling, API design, system architecture) → backend-heavy. More bullet points on frontend (UI, UX, component libraries, design implementation) → frontend-heavy. When balanced, default to backend-heavy.
 
-
 ## Difficulty calibration
 
 Difficulty is proportional to what the JD requires — not the role track. A demanding frontend JD produces a harder frontend task than a relaxed fullstack JD. The role track determines the shape of the work, not the volume.
@@ -50,7 +46,6 @@ All four tracks are designed to be equivalent in effort for a focused junior ove
 - Backend: no UI work beyond demonstration, but full API design from scratch
 - Fullstack frontend-heavy: lean backend + rich UI
 - Fullstack backend-heavy: full backend + basic UI
-
 
 ## Discipline traps
 
@@ -68,7 +63,6 @@ Examples by domain:
 - **SaaS** — config externalised never hardcoded; auth token validated including expiry; duplicate detection at database level not application level only
 - **Backend** — input validated server-side with descriptive errors; schema constraints enforced at database level; sensitive operations atomic
 
-
 ## The trade-off
 
 Every task must contain exactly one genuine product decision. State the tension in two to three sentences — no labelled options (no "Option A / Option B"), no resolution. Tell the candidate to pick one, implement it consistently across every relevant surface, and explain their reasoning in the README.
@@ -82,7 +76,6 @@ Examples:
 - Whether a status change triggers a downstream effect automatically or requires a separate explicit action
 - Whether to show items with missing data or exclude them from the listing
 
-
 ## What we're not looking for
 
 Every task must include exactly one scope boundary. Role-specific, one line, nothing condescending.
@@ -93,13 +86,11 @@ Every task must include exactly one scope boundary. Role-specific, one line, not
 - Fullstack backend-heavy: "A polished frontend — get it working, that's enough"
 - Mobile: "A web version — build for mobile, that's the brief"
 
-
 ## Output format
 
 Generate exactly one task. Raw markdown only — no preamble, no explanation, no wrapping code fences. Deliver as a `TASK.md` file, not inline text.
 
 Structure:
-
 
 # Task — [Short descriptive title]
 
@@ -107,22 +98,18 @@ Structure:
 
 [Two to three sentences. Real handoff tone. Not a test brief.]
 
-
 ## What to build
 
 [Tight bullet list. Specific but not prescriptive.]
-
 
 ## The data
 
 [Frontend/fullstack-frontend: API endpoint URL + key query params only. Do not describe the response shape.
 Backend/fullstack-backend/mobile: every field that affects implementation — name, type, constraints, null conditions.]
 
-
 ## The trade-off
 
 [Two to three sentences. The tension. No labelled options. Tell the candidate to pick one, implement consistently, explain in README.]
-
 
 ## Deliverables
 
@@ -135,23 +122,19 @@ All work goes inside `solution/`. Include a `README.md` covering:
 
 [Backend/fullstack-backend: add "Include seed data so a reviewer can load the app immediately."]
 
-
 ## Constraints
 
 [Two to three bullets. Rule + what breaks. Nothing more.]
 
-
 ## What we're not looking for
 
 - [One scope boundary.]
-
 
 ## Deadline
 
 {{ deadline }}
 
 [One closing line. Optional.]
-
 
 ## Instructions
 
@@ -168,7 +151,6 @@ All work goes inside `solution/`. Include a `README.md` covering:
 11. Verify: is every line earning its place? If it can be cut without losing meaning, cut it.
 12. Generate the task. Raw markdown only.
 13. Leave the Deadline section exactly as `{{ deadline }}` — injected automatically by the assessment script.
-
 
 ## Input
 

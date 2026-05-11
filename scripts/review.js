@@ -138,7 +138,9 @@ async function run() {
   // ── 7. Fetch and annotate diff ──────────────────────────────────────────────
   const rawDiff = await fetchDiff(PR_OWNER, PR_REPO, PR_NUMBER, GITHUB_TOKEN);
   const { annotatedDiff, positionMap } = annotateDiff(rawDiff);
-  const diff = truncateDiff(annotatedDiff);
+  const { diff: filteredDiff, skipped } = filterNoisyFiles(annotatedDiff);
+  if (skipped > 0) console.log(`Filtered ${skipped} noisy file(s) from diff.`);
+  const diff = truncateDiff(filteredDiff);
 
   // ── 8. Build prompts and call Claude ────────────────────────────────────────
   const systemPrompt = buildSystemPrompt(task, rubric);

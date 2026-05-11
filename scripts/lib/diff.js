@@ -1,5 +1,18 @@
 // Annotates a raw GitHub PR diff with [pos:N] position markers
 // so Claude can reference specific lines in inline comments.
+// Also filters noisy files (lock files, generated output) before
+// the diff reaches Claude to preserve context window space.
+
+const NOISY_FILES = new Set([
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  'composer.lock',
+  'Gemfile.lock',
+  'poetry.lock',
+  'Cargo.lock',
+]);
 
 function annotateDiff(diff) {
   const lines = diff.split('\n');
@@ -47,6 +60,28 @@ function annotateDiff(diff) {
   return { annotatedDiff: annotated.join('\n'), positionMap };
 }
 
+function filterNoisyFiles(annotatedDiff) {
+  // Split on diff --git headers, keeping the delimiter
+  const chunks = annotatedDiff.split(/(?=^diff --git )/m);
+  const filtered = [];
+  let skipped = 0;
+
+  for (const chunk of chunks) {
+    if (!chunk.trim()) continue;
+    const match = chunk.match(/^diff --git a\/.+ b\/(.+)/m);
+    if (match) {
+      const filename = match[1].split('/').pop();
+      if (NOISY_FILES.has(filename)) {
+        skipped++;
+        continue;
+      }
+    }
+    filtered.push(chunk);
+  }
+
+  return { diff: filtered.join(''), skipped };
+}
+
 function truncateDiff(annotatedDiff, maxChars = 80_000) {
   if (annotatedDiff.length <= maxChars) return annotatedDiff;
   return (
@@ -72,4 +107,9 @@ function partitionInlineComments(inlineComments, positionMap) {
   return { valid, fallback };
 }
 
-module.exports = { annotateDiff, truncateDiff, partitionInlineComments };
+module.exports = {
+  annotateDiff,
+  filterNoisyFiles,
+  truncateDiff,
+  partitionInlineComments,
+};

@@ -305,6 +305,7 @@ These apply to every role. The role-specific patch adds additional hard fails on
 - Single commit, or all commits are "initial commit", "add files", "done", or equivalent
 - README missing, empty, or contains no runnable setup instructions
 - Submission does not run
+- `.env` file containing real credentials or API keys committed to the repo — flag the specific file and note the security implication
 
 ## Scored deductions — universal
 
@@ -314,6 +315,7 @@ These apply to every role. Flag as inline comments, not hard fails. The patch ad
 - Comments that describe what code does — deduct under 2.3 Proportional Complexity
 - The same concept named differently across files — deduct under 2.2 Domain Vocabulary
 - Abstractions used in exactly one place — deduct under 1.2 Scope Judgment
+- `node_modules/`, `dist/`, `build/`, `.next/`, or other generated/output directories committed to the repo — deduct under 1.2 Scope Judgment and flag as an inline comment
 
 ## Scoring output format
 

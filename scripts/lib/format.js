@@ -21,7 +21,7 @@ function buildStructuredFeedback(review) {
     : '- The submission showed effort and engagement with the task.';
 
   const improvements = hasHardFails
-    ? review.hard_fails.map((f) => `- ${f}`).join('\n')
+    ? review.hard_fails.map((f) => `- ${f}`).join('\n\n')
     : fb.improvements?.length
       ? fb.improvements.map((i) => `- ${i}`).join('\n')
       : '- The submission fell just short of the overall threshold.';
@@ -36,12 +36,15 @@ function buildStructuredFeedback(review) {
 
   return [
     '**What worked**',
+    '',
     strengths,
     '',
     '**What held it back**',
+    '',
     improvements,
     '',
     '**Next time**',
+    '',
     nextTime,
   ].join('\n');
 }
@@ -63,8 +66,8 @@ function buildPrComment({
     : '';
 
   const fallbackSection = fallbackComments.length
-    ? '\n**Additional notes**\n' +
-      fallbackComments.map((c) => `**\`${c.file}\`**\n${c.note}`).join('\n\n')
+    ? '\n**Additional notes**\n\n' +
+      fallbackComments.map((c) => `**\`${c.file}\`**\n\n${c.note}`).join('\n\n')
     : '';
 
   // Final attempt, not approved
@@ -99,6 +102,7 @@ function buildPrComment({
         '',
         buildAttemptLine(attemptNumber),
         '',
+        '',
         review.summary,
         fallbackSection,
       ]
@@ -114,6 +118,7 @@ function buildPrComment({
       '### You have feedback.',
       '',
       buildAttemptLine(attemptNumber),
+      '',
       '',
       review.summary,
       hardFailSection,
@@ -149,7 +154,7 @@ function buildSystemPrompt(task, rubric) {
     '- Wrap variable names, function names, and code references in backticks: `amount`, `calculateTotal()`',
     '- Use **bold** for emphasis on critical issues',
     '',
-    'Return only a valid JSON object. No preamble, no explanation, no markdown fences. The first character of your response must be `{` and the last must be `}`.',
+    'Return ONLY a valid JSON object. No preamble, no explanation, no markdown fences. The first character of your response must be `{` and the last must be `}`.',
     '',
     'The "summary" field must follow these rules:',
     '- Write in short paragraphs separated by blank lines, not as a single block of text',

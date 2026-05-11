@@ -18,6 +18,7 @@ const {
 const { callClaude, extractText, parseReview } = require('./lib/claude');
 const {
   annotateDiff,
+  filterNoisyFiles,
   truncateDiff,
   partitionInlineComments,
 } = require('./lib/diff');
